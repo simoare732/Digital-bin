@@ -32,20 +32,31 @@ def on_message(client, userdata, msg):
     payload = msg.payload.decode()
     topic = msg.topic
     print(f"MQTT RX | Topic: {topic} | Payload: {payload}")
-    
+
+    payload_bytes = payload.encode('utf-8')
+
+    start_marker = b'\xFE'
+    if('lock' in topic):
+        topic_marker = b'\x01'
+    elif ('lcd' in topic):
+        topic_marker = b'\x02'
+    else:
+        topic_marker = b'\x00'  # Marker di default se non riconosciuto
+    end_marker = b'\xFF'
+
+    packet = start_marker + topic_marker + payload_bytes + end_marker
+
     # Invia il comando al dispositivo seriale
     try:
-        ser.write((payload + '\n').encode())
+        ser.write(packet)
     except Exception as e:
         print(f"Errore scrittura seriale: {e}")
 
 
-def send_json(dictionary):
+def convert_json(id, dictionary):
     message = {
-        "Device A":[
-            {
-                "values":dictionary
-            }
+        id :[
+            dictionary
         ]
     }
     return json.dumps(message)
@@ -72,6 +83,7 @@ def serial_reader():
 
                 msg_type = parts[0].upper() # Tipo (FILL, POSITION, OVERTURN)
                 bin_id = parts[1]           # ID del bidone (es. '1', '2')
+                client.publish("v1/gateway/connect", '{"device": "' + bin_id + '"}')
 
                 topic = None
                 payload = None
@@ -80,18 +92,18 @@ def serial_reader():
                 if msg_type == 'FILL' and len(parts) == 3:
                     # Formato: FILL,id,valore
                     payload = {"fill": parts[2]}
-                    msg = send_json(payload)
+                    msg = convert_json(bin_id, payload)
                 
                 elif msg_type == 'POSITION' and len(parts) >= 3:
                     # Formato: POSITION,id,lat,lon (o un altro formato)
                     # Qui uniamo lat e lon se sono separati
                     payload = {"lat": float(parts[2]), "lon": float(parts[3])}
-                    msg = send_json(payload)
-                
+                    msg = convert_json(bin_id, payload)
+
                 elif msg_type == 'OVERTURN' and len(parts) == 3:
                     # Formato: OVERTURN,id,stato
                     payload = {"overturn": parts[2]}
-                    msg = send_json(payload)
+                    msg = convert_json(bin_id, payload)
                 
                 else:
                     print(f"Dato seriale non riconosciuto: {line}")
@@ -115,7 +127,7 @@ except Exception as e:
     print(f"Impossibile connettersi al broker {BROKER}: {e}")
     exit(1)
 
-client.publish("v1/gateway/connect", '{"device":"Device A"}')
+
 
 t = threading.Thread(target=serial_reader, daemon=True)
 t.start()

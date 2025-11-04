@@ -1,3 +1,4 @@
+import ssl
 import paho.mqtt.client as mqtt
 import serial
 import threading
@@ -7,16 +8,34 @@ import json
 SERIAL_PORT = 'COM6'
 BAUD_RATE = 9600
 ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-BROKER = 'localhost'
-#BROKER = 'mqtt.faffofvtt.work'
-#TOKEN = "wMInMIGEy5ZDvCFW7Nqe"
+#BROKER = 'localhost'
+BROKER = '3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud'
+PORT = 8883 
+CLIENT_ID = "bridge_publisher"
+USERNAME = "bridge" 
 
 #topic_pub_fill = '/BINs/+/fill'
 #topic_pub_position = '/BINs/+/position'
 #topic_pub_overturn = '/BINs/+/overturn'
 
-topic_sub_lock = 'BINs/+/lock'
-topic_sub_lcd = 'BINs/+/lcd'
+TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/"
+topic_sub_lock = TOPIC_BASE + '+/lock'
+topic_sub_lcd = TOPIC_BASE + '+/lcd'
+
+def read_password_from_file(file_name="./MqttSubscriber.py/token.txt"):
+    try:
+        with open(file_name, 'r', encoding='utf-8') as file:
+            password = file.read().strip()
+            return password
+            
+    except FileNotFoundError:
+        print(f"❌ Error: The file '{file_name}' was not found.")
+        return None
+    except Exception as e:
+        print(f"⚠️ An error occurred while reading the file: {e}")
+        return None
+
+PASSWORD = read_password_from_file()
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -84,7 +103,6 @@ def serial_reader():
 
                 msg_type = parts[0].upper() # Tipo (FILL, POSITION, OVERTURN)
                 bin_id = parts[1]           # ID del bidone (es. '1', '2')
-                client.publish("v1/gateway/connect", '{"device": "' + bin_id + '"}')
 
                 topic = None
                 payload = None
@@ -112,18 +130,25 @@ def serial_reader():
                 # Se abbiamo un topic e un payload validi, pubblichiamo
                 if payload:
                     print(f"MQTT TX | Topic: {topic} | Payload: {payload}")
-                    client.publish("v1/gateway/telemetry", msg)
-
+                    if(msg_type == 'POSITION'):
+                        client.publish(f"{TOPIC_BASE}{bin_id}/position/lat", payload=payload['lat'], qos=1)
+                        client.publish(f"{TOPIC_BASE}{bin_id}/position/lon", payload=payload['lon'], qos=1)
+                    else:
+                        client.publish(f"{TOPIC_BASE}{bin_id}/{msg_type.lower()}", payload=payload[msg_type.lower()], qos=1)
+                    
             except Exception as e:
                 print(f"Errore nel thread seriale: {e}")
         time.sleep(0.1) # Piccolo delay per non sovraccaricare la CPU
 
-client = mqtt.Client()
-#client.username_pw_set(TOKEN)
+client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
 client.on_connect = on_connect
 client.on_message = on_message
+client.username_pw_set(username=USERNAME, password=PASSWORD)
+if PORT == 8883:
+    client.tls_set(tls_version=ssl.PROTOCOL_TLS)
+
 try:
-    client.connect(BROKER, 1883, 60)
+    client.connect(BROKER, PORT, 60)
 except Exception as e:
     print(f"Impossibile connettersi al broker {BROKER}: {e}")
     exit(1)

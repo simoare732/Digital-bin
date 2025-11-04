@@ -1,19 +1,32 @@
+//Dependencies for qrcode
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
 #include <SR04.h>
 #include <Servo.h>
 #define TRIG_PIN 31
 #define ECHO_PIN 30
 #define SERVO_PIN 9
 
+// ----- Impostazioni Display -----
+#define SCREEN_WIDTH 128 
+#define SCREEN_HEIGHT 64 
+#define OLED_RESET -1    
+#define SCREEN_ADDRESS 0x3C 
+
 SR04 sr04 = SR04(ECHO_PIN,TRIG_PIN);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 Servo servo;
 
 const int id = 1;
 
 const unsigned long delay_fill = 2000;  // Delay between two measurements of fill
-unsigned long last_fill = millis();   // Timestamp of last measurement
+unsigned long last_fill = 0;   // Timestamp of last measurement
 
 const unsigned long delay_overturn = 2000;  // Delay between two measurements of overturn
-unsigned long last_overturn = millis();  // Timestamp of last measurement   
+unsigned long last_overturn = 0;  // Timestamp of last measurement   
 
 enum RXState{
    WAIT_FOR_START,
@@ -96,7 +109,19 @@ void processCommand(byte commandType, String payload){
       break;
     
     case CMD_LCD:
-      //logica lcd
+      int commaIndex = payload.indexOf(',');
+      int distance = 0;
+      char dir = '?';
+      if(commaIndex != -1){
+        String distanceStr = payload.substring(0,commaIndex);
+        distanceStr.trim();
+        distance = distanceStr.toInt();
+
+        String dirStr = payload.substring(commaIndex+1);
+        dirStr.trim();
+        if(dirStr.length() > 0)dir = dirStr[0];
+      }
+      showDirections(distance, dir);
       break;
     
     default:
@@ -104,18 +129,148 @@ void processCommand(byte commandType, String payload){
   }
 }
 
-void setup() {
-   servo.attach(SERVO_PIN);
-   Serial.begin(9600);
-   delay(1000);
-   //digitalWrite(LED, LOW);
+void showDirections(int distance, char dir) {
+  
+  // 1. Pulisci il buffer (sfondo NERO)
+  display.clearDisplay(); 
+  
+  // 2. Imposta il colore del testo/disegno su BIANCO
+  display.setTextColor(SSD1306_WHITE); 
 
-   Serial.print("POSITION,");
-   Serial.print(id);
-   Serial.print(",");
-   Serial.print(lat);
-   Serial.print(",");
-   Serial.println(lon);
+  // --- Linea 1: "XXX m" (es. 100 m) ---
+  
+  String distStr = String(distance) + " m"; 
+  display.setTextSize(2); // Dimensione testo media
+  
+  int16_t x1_text, y1_text;
+  uint16_t w_text, h_text;
+  
+  display.getTextBounds(distStr, 0, 0, &x1_text, &y1_text, &w_text, &h_text);
+  
+  int16_t x_pos_1 = (SCREEN_WIDTH - w_text) / 2;
+  int16_t y_pos_1 = 4; // 4 pixel dall'alto (nella zona gialla)
+  
+  display.setCursor(x_pos_1, y_pos_1);
+  display.print(distStr);
+
+  // --- Linea 2: Disegna la Freccia Completa ---
+  
+  // Punto di riferimento centrale per la freccia (nella zona blu)
+  int16_t center_x = SCREEN_WIDTH / 2; // Centro X = 64
+  int16_t center_y = 44; // Centro Y (verticale) nella zona blu (16-64)
+  
+  int16_t arrowHeadSize = 8; // Dimensione della punta del triangolo
+  int16_t arrowShaftWidth = 4; // Larghezza dell'asta della freccia
+  int16_t arrowShaftLength = 16; // Lunghezza dell'asta della freccia
+
+  switch (dir) {
+    
+    case 'U': // Freccia SU
+      // Asta (rettangolo verticale)
+      display.fillRect(
+        center_x - arrowShaftWidth / 2, // X inizio asta
+        center_y - arrowShaftLength / 2, // Y inizio asta
+        arrowShaftWidth, // Larghezza
+        arrowShaftLength, // Altezza
+        SSD1306_WHITE
+      );
+      // Punta (triangolo)
+      display.fillTriangle(
+        center_x, center_y - arrowShaftLength / 2 - arrowHeadSize, // Punta in alto
+        center_x - arrowHeadSize, center_y - arrowShaftLength / 2, // Base sinistra
+        center_x + arrowHeadSize, center_y - arrowShaftLength / 2, // Base destra
+        SSD1306_WHITE
+      );
+      break;
+
+    case 'R': // Freccia DESTRA
+      // Asta (rettangolo orizzontale)
+      display.fillRect(
+        center_x - arrowShaftLength / 2, // X inizio asta
+        center_y - arrowShaftWidth / 2, // Y inizio asta
+        arrowShaftLength, // Lunghezza
+        arrowShaftWidth, // Larghezza
+        SSD1306_WHITE
+      );
+      // Punta (triangolo)
+      display.fillTriangle(
+        center_x + arrowShaftLength / 2 + arrowHeadSize, center_y, // Punta a destra
+        center_x + arrowShaftLength / 2, center_y - arrowHeadSize, // Base alta
+        center_x + arrowShaftLength / 2, center_y + arrowHeadSize, // Base bassa
+        SSD1306_WHITE
+      );
+      break;
+
+    case 'L': // Freccia SINISTRA
+      // Asta (rettangolo orizzontale)
+      display.fillRect(
+        center_x - arrowShaftLength / 2, // X inizio asta
+        center_y - arrowShaftWidth / 2, // Y inizio asta
+        arrowShaftLength, // Lunghezza
+        arrowShaftWidth, // Larghezza
+        SSD1306_WHITE
+      );
+      // Punta (triangolo)
+      display.fillTriangle(
+        center_x - arrowShaftLength / 2 - arrowHeadSize, center_y, // Punta a sinistra
+        center_x - arrowShaftLength / 2, center_y - arrowHeadSize, // Base alta
+        center_x - arrowShaftLength / 2, center_y + arrowHeadSize, // Base bassa
+        SSD1306_WHITE
+      );
+      break;
+
+    case 'D': // Freccia GIÙ
+      // Asta (rettangolo verticale)
+      display.fillRect(
+        center_x - arrowShaftWidth / 2, // X inizio asta
+        center_y - arrowShaftLength / 2, // Y inizio asta
+        arrowShaftWidth, // Larghezza
+        arrowShaftLength, // Altezza
+        SSD1306_WHITE
+      );
+      // Punta (triangolo)
+      display.fillTriangle(
+        center_x, center_y + arrowShaftLength / 2 + arrowHeadSize, // Punta in basso
+        center_x - arrowHeadSize, center_y + arrowShaftLength / 2, // Base sinistra
+        center_x + arrowHeadSize, center_y + arrowShaftLength / 2, // Base destra
+        SSD1306_WHITE
+      );
+      break;
+
+    default:
+      // Se il carattere non è riconosciuto, stampa un '?' al centro
+      display.setTextSize(3);
+      display.getTextBounds("?", 0, 0, &x1_text, &y1_text, &w_text, &h_text);
+      display.setCursor((SCREEN_WIDTH - w_text) / 2, 35);
+      display.print("?");
+      break;
+  }
+
+  // 3. Invia il buffer al display per mostrarlo
+  display.display();
+}
+
+void setup() {
+  servo.attach(SERVO_PIN);
+  Serial.begin(9600);
+  delay(1000);
+  //digitalWrite(LED, LOW);
+
+  Serial.print("POSITION,");
+  Serial.print(id);
+  Serial.print(",");
+  Serial.print(lat);
+  Serial.print(",");
+  Serial.println(lon);
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+   Serial.println(F("Inizializzazione SSD1306 fallita")); 
+   while(1);
+  }
+
+  display.clearDisplay();
+  display.display();
+
 }
 
 void loop() {

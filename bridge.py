@@ -7,8 +7,9 @@ import json
 SERIAL_PORT = 'COM6'
 BAUD_RATE = 9600
 ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-BROKER = 'mqtt.faffofvtt.work'
-TOKEN = "wMInMIGEy5ZDvCFW7Nqe"
+BROKER = 'localhost'
+#BROKER = 'mqtt.faffofvtt.work'
+#TOKEN = "wMInMIGEy5ZDvCFW7Nqe"
 
 #topic_pub_fill = '/BINs/+/fill'
 #topic_pub_position = '/BINs/+/position'
@@ -118,7 +119,7 @@ def serial_reader():
         time.sleep(0.1) # Piccolo delay per non sovraccaricare la CPU
 
 client = mqtt.Client()
-client.username_pw_set(TOKEN)
+#client.username_pw_set(TOKEN)
 client.on_connect = on_connect
 client.on_message = on_message
 try:

@@ -59,10 +59,19 @@ def main():
             # --- Dummy Data Generation (Replace with actual data fetching) ---
             id_ = 1 
             data = {
-                "fill": 40, 
-                "position_lat": 3902, 
-                "position_long": 8359, 
-                "overturn": False
+                
+                "position_lat": 41.9028, 
+                "position_long": 12.4964, 
+                "overturn": False,
+                "fill": 40
+            }
+
+            id_1 = 2 
+            data_1 = {
+                "position_lat": 41.9078, 
+                "position_long": 12.4964, 
+                "overturn": False,
+                "fill": 10
             }
 
             TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/{id_}"
@@ -74,6 +83,17 @@ def main():
                 client.publish(full_topic, payload=payload_str, qos=1)
                 
                 print(f"Sent: '{payload_str}' to topic: '{full_topic}'")
+
+            TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/{id_1}"
+            for key, value in data_1.items():
+                
+                full_topic = f"{TOPIC_BASE}/{key}"
+                payload_str = str(value) 
+                
+                client.publish(full_topic, payload=payload_str, qos=1)
+                
+                print(f"Sent: '{payload_str}' to topic: '{full_topic}'")
+
 
             time.sleep(2) 
 

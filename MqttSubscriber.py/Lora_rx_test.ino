@@ -17,40 +17,29 @@ void setup() {
   if (!LoRa.begin(433E6)) { 
     while (1); 
   }
+
+  LoRa.receive();
 }
 
 void loop() {
-    
-   LoRa.receive();
-   
-  int packetSize = LoRa.parsePacket();
-  
-  if (packetSize) {
-    String receivedData = "";
-    while (LoRa.available()) {
-      receivedData += (char)LoRa.read();
-    }
 
-    if (receivedData == "ping") {
-      
-      if (tx_msg.length() > 0) {
-
-        LoRa.beginPacket();
-        LoRa.print(tx_msg);
-        LoRa.endPacket();
-        
-      }
-
-      tx_msg = ""; 
-    }
-  } 
-
+  // Messages from Bridge
   if (Serial.available() > 0) {
-    String newMessage = Serial.readStringUntil('\n');
-    newMessage.trim();
-
-    if (newMessage.length() > 0) {
-      tx_msg = newMessage;
+    LoRa.beginPacket();
+    while (Serial.available()) {
+      LoRa.write(Serial.read()); // Scrive i byte binari
     }
-  }
+    LoRa.endPacket();
+    
+    // TORNA SUBITO IN ASCOLTO SU LORA
+    LoRa.receive(); 
+  }  
+  int packetSize = LoRa.parsePacket();
+  if (packetSize > 0) {
+    while (LoRa.available()) {
+      Serial.write(LoRa.read()); // Scrive i dati (inclusi \n)
+    }
+    // (Non serve tornare in LoRa.receive() perché 
+    // l'abbiamo già fatto dopo l'invio al punto 1)
+  } 
 }

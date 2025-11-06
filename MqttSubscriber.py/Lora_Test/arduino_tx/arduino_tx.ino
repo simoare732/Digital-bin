@@ -86,6 +86,8 @@ void send_fill(){
   LoRa.print(",");
   LoRa.print(distance);
   LoRa.endPacket();
+
+  LoRa.receive();
 }
 
 void send_overturn(){
@@ -100,6 +102,8 @@ void send_overturn(){
   LoRa.print(",");
   LoRa.print(isOverturn);
   LoRa.endPacket();
+
+  LoRa.receive();
 }
 
 void send_ping(){
@@ -109,6 +113,9 @@ void send_ping(){
 }
 
 void checkSerialCommands() {
+  int packetSize = LoRa.parsePacket();
+  if (packetSize == 0) return
+  
   while (LoRa.available() > 0) {
     byte inByte = LoRa.read();
 
@@ -312,10 +319,6 @@ void showDirections(int distance, char dir) {
   display.display();
 }
 
-void lcd(int distance, char dir){
-  
-}
-
 void setup() {
   servo.attach(SERVO_PIN);
   LoRa.setPins(LORA_CS_PIN, LORA_RESET_PIN, LORA_IRQ_PIN);
@@ -344,14 +347,14 @@ void setup() {
   display.clearDisplay();
   display.display();
 
+  LoRa.receive();
+
 }
 
 void loop() {
-  long startTimePing = 0;
   if(millis() - last_fill >= delay_fill){
     last_fill = millis();
     send_fill();
-    startTimePing = millis();
   }
    
   if(millis() - last_overturn >= delay_overturn){

@@ -36,11 +36,14 @@ Servo servo;
 
 const int id = 1;
 
-const unsigned long delay_fill = 3000;  // Delay between two measurements of fill
+const unsigned long delay_fill = 2000;  // Delay between two measurements of fill
 unsigned long last_fill = 0;   // Timestamp of last measurement
 
 const unsigned long delay_overturn = 10000;  // Delay between two measurements of overturn
-unsigned long last_overturn = 0;  // Timestamp of last measurement   
+unsigned long last_overturn = 0;  // Timestamp of last measurement
+
+const unsigned long delay_ping = 2000;
+unsigned long last_ping = 0;
 
 enum RXState{
    WAIT_FOR_START,
@@ -99,9 +102,15 @@ void send_overturn(){
   LoRa.endPacket();
 }
 
+void send_ping(){
+  LoRa.beginPacket();
+  LoRa.print("ping");
+  LoRa.endPacket();
+}
+
 void checkSerialCommands() {
-  while (Serial.available() > 0) {
-    byte inByte = Serial.read();
+  while (LoRa.available() > 0) {
+    byte inByte = LoRa.read();
 
     switch (currentRxState) {
       
@@ -303,6 +312,10 @@ void showDirections(int distance, char dir) {
   display.display();
 }
 
+void lcd(int distance, char dir){
+  
+}
+
 void setup() {
   servo.attach(SERVO_PIN);
   LoRa.setPins(LORA_CS_PIN, LORA_RESET_PIN, LORA_IRQ_PIN);
@@ -334,16 +347,24 @@ void setup() {
 }
 
 void loop() {
-   if(millis() - last_fill >= delay_fill){
-      last_fill = millis();
-      send_fill();
-   }
+  long startTimePing = 0;
+  if(millis() - last_fill >= delay_fill){
+    last_fill = millis();
+    send_fill();
+    startTimePing = millis();
+  }
    
-   if(millis() - last_overturn >= delay_overturn){
-      last_overturn = millis();
-      send_overturn();
-   }
+  if(millis() - last_overturn >= delay_overturn){
+    last_overturn = millis();
+    send_overturn();
+  }
 
-   checkSerialCommands();
+  while(millis() - startTimePing < delay_ping){
+    int packetSize = LoRa.parsePacket();
+    if(packetSize){
+      checkSerialCommands()
+    }
+  }
+   
 }
 

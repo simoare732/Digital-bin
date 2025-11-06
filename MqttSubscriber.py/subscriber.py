@@ -37,7 +37,7 @@ def on_connect(client, userdata, flags, rc):
 
 def next_bin_direction(lat1, lon1, lat2, lon2):
 
-    directions = ["Up", "Right", "Down", "Left"]
+    directions = ["U", "R", "D", "L"]
 
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
@@ -88,11 +88,9 @@ def on_message(client, userdata, msg):
     if bin_id not in SUBSCRIBED_DATA:
         SUBSCRIBED_DATA[bin_id] = {}
         client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=0, qos=1)
-        client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="ok", qos=1)
-        client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/next_bin_distance", payload="none", qos=1)
+        client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
         SUBSCRIBED_DATA[bin_id]["lock"] = 0
-        SUBSCRIBED_DATA[bin_id]["lcd"] = "ok"
-        SUBSCRIBED_DATA[bin_id]["next_bin_distance"] = "none"
+        SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
 
     SUBSCRIBED_DATA[bin_id][data_key] = payload_value
 
@@ -105,29 +103,22 @@ def on_message(client, userdata, msg):
             for key in SUBSCRIBED_DATA:
                 if key != bin_id:
                     if int(SUBSCRIBED_DATA[key]["lock"]) == 0:
-                        tmpDistance = bin_distance(float(SUBSCRIBED_DATA[bin_id]["position_lat"]), float(SUBSCRIBED_DATA[bin_id]["position_long"]), float(SUBSCRIBED_DATA[key]["position_lat"]), float(SUBSCRIBED_DATA[key]["position_long"]))
+                        tmpDistance = bin_distance(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["long"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["long"]))
                         if tmpDistance < nextBinDistace:
                             nextBinDistace = tmpDistance
-                            direction = next_bin_direction(float(SUBSCRIBED_DATA[bin_id]["position_lat"]), float(SUBSCRIBED_DATA[bin_id]["position_long"]), float(SUBSCRIBED_DATA[key]["position_lat"]), float(SUBSCRIBED_DATA[key]["position_long"]))
+                            direction = next_bin_direction(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["long"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["long"]))
                         
             if nextBinDistace < 1000:
-                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=direction, qos=1)
-                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/next_bin_distance", payload=nextBinDistace, qos=1)
-                SUBSCRIBED_DATA[bin_id]["lcd"] = direction
-                SUBSCRIBED_DATA[bin_id]["next_bin_distance"] = nextBinDistace
+                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=f"{nextBinDistace},{direction}", qos=1)
+                SUBSCRIBED_DATA[bin_id]["lcd"] = f"{nextBinDistace},{direction}"
             else:
-                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="none", qos=1)
-                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/next_bin_distance", payload="none", qos=1)
-                SUBSCRIBED_DATA[bin_id]["lcd"] = "none"
-                SUBSCRIBED_DATA[bin_id]["next_bin_distance"] = "none"
-
+                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
+                SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
         elif(int(SUBSCRIBED_DATA[bin_id]["lock"])==1):
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=0, qos=1)
-            client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="ok", qos=1)
-            client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/next_bin_distance", payload="none", qos=1)
+            client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
             SUBSCRIBED_DATA[bin_id]["lock"] = 0
-            SUBSCRIBED_DATA[bin_id]["lcd"] = "ok"
-            SUBSCRIBED_DATA[bin_id]["next_bin_distance"] = "none"
+            SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
 
     print(SUBSCRIBED_DATA)
     print("\n")

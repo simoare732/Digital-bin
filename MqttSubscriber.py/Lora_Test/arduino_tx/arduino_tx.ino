@@ -84,7 +84,7 @@ void send_fill(){
   LoRa.print("FILL,");
   LoRa.print(id);
   LoRa.print(",");
-  LoRa.print(distance);
+  LoRa.println(distance);
   LoRa.endPacket();
 
   LoRa.receive();
@@ -100,7 +100,7 @@ void send_overturn(){
   LoRa.print("OVERTURN,");
   LoRa.print(id);
   LoRa.print(",");
-  LoRa.print(isOverturn);
+  LoRa.println(isOverturn);
   LoRa.endPacket();
 
   LoRa.receive();
@@ -114,8 +114,8 @@ void send_ping(){
 
 void checkSerialCommands() {
   int packetSize = LoRa.parsePacket();
-  if (packetSize == 0) return
-  
+  if (packetSize == 0) return;
+
   while (LoRa.available() > 0) {
     byte inByte = LoRa.read();
 
@@ -182,7 +182,7 @@ void processCommand(byte commandType, String payload){
         String dirStr = payload.substring(commaIndex+1);
         dirStr.trim();
 
-        if(distance == 0 && dirStr == 'ok'){
+        if(distance == 0 && dirStr == "ok"){
           display.clearDisplay();
           display.display();
           break;
@@ -362,12 +362,7 @@ void loop() {
     send_overturn();
   }
 
-  while(millis() - startTimePing < delay_ping){
-    int packetSize = LoRa.parsePacket();
-    if(packetSize){
-      checkSerialCommands()
-    }
-  }
+  checkSerialCommands();
    
 }
 

@@ -104,7 +104,6 @@ def serial_reader():
                 msg_type = parts[0].upper() # Tipo (FILL, POSITION, OVERTURN)
                 bin_id = parts[1]           # ID del bidone (es. '1', '2')
 
-                topic = None
                 payload = None
 
                 # Costruisci topic e payload in base al tipo di messaggio
@@ -129,7 +128,7 @@ def serial_reader():
 
                 # Se abbiamo un topic e un payload validi, pubblichiamo
                 if payload:
-                    print(f"MQTT TX | Topic: {topic} | Payload: {payload}")
+                    print(f"MQTT TX | Payload: {payload}")
                     if(msg_type == 'POSITION'):
                         client.publish(f"{TOPIC_BASE}{bin_id}/position/lat", payload=payload['lat'], qos=1)
                         client.publish(f"{TOPIC_BASE}{bin_id}/position/lon", payload=payload['lon'], qos=1)

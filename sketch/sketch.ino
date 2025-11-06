@@ -2,6 +2,9 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 
 #include <SR04.h>
 #include <Servo.h>
@@ -17,6 +20,7 @@
 
 SR04 sr04 = SR04(ECHO_PIN,TRIG_PIN);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // BNO055
 
 Servo servo;
 
@@ -45,12 +49,27 @@ const byte CMD_LCD = 0x02;
 const float lat = 44.65;
 const float lon = 10.93;
 
+//Normal position of BNO055
+const float turnY = 0.40;
+const float turnZ = 9.80;
+
 void send_fill(){
    long distance=sr04.Distance();
    Serial.print("FILL,");
    Serial.print(id);
    Serial.print(",");
    Serial.println(distance);
+}
+
+void send_overturn(){
+  imu::Vector<3> gravity = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+  bool isOverturn = false;
+  if(abs(gravity.y() - turnY) > 1 && abs(gravity.z() - turnZ) > 1)
+    isOverturn = true;
+  Serial.print("OVERTURN,");
+  Serial.print(id);
+  Serial.print(",");
+  Serial.println(isOverturn);
 }
 
 void checkSerialCommands() {
@@ -119,6 +138,13 @@ void processCommand(byte commandType, String payload){
 
         String dirStr = payload.substring(commaIndex+1);
         dirStr.trim();
+
+        if(distance == 0 && dirStr == 'ok'){
+          display.clearDisplay();
+          display.display();
+          break;
+        }
+        
         if(dirStr.length() > 0)dir = dirStr[0];
       }
       showDirections(distance, dir);
@@ -268,6 +294,12 @@ void setup() {
    while(1);
   }
 
+  if (!bno.begin()) {
+    Serial.print("BNO055 non rilevato! Controlla i collegamenti I2C.");
+    while (1);
+  }
+  bno.setExtCrystalUse(true);
+
   display.clearDisplay();
   display.display();
 
@@ -281,7 +313,7 @@ void loop() {
    
    if(millis() - last_overturn >= delay_overturn){
       last_overturn = millis();
-      //send_overturn();
+      send_overturn();
    }
 
    checkSerialCommands();

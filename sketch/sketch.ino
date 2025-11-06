@@ -10,7 +10,7 @@
 #include <Servo.h>
 #define TRIG_PIN 31
 #define ECHO_PIN 30
-#define SERVO_PIN 9
+#define SERVO_PIN 10
 
 // ----- Impostazioni Display -----
 #define SCREEN_WIDTH 128 

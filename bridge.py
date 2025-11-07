@@ -66,6 +66,9 @@ def on_message(client, userdata, msg):
 
     packet = start_marker + topic_marker + payload_bytes + end_marker
 
+    print(packet)
+    print( "\n")
+
     # Invia il comando al dispositivo seriale
     try:
         ser.write(packet)
@@ -118,8 +121,8 @@ def serial_reader():
                 if payload:
                     print(f"MQTT TX | Payload: {payload}")
                     if(msg_type == 'POSITION'):
-                        client.publish(f"{TOPIC_BASE}{bin_id}/position/lat", payload=payload['lat'], qos=1)
-                        client.publish(f"{TOPIC_BASE}{bin_id}/position/lon", payload=payload['lon'], qos=1)
+                        client.publish(f"{TOPIC_BASE}{bin_id}/lat", payload=payload['lat'], qos=1)
+                        client.publish(f"{TOPIC_BASE}{bin_id}/lon", payload=payload['lon'], qos=1)
                     else:
                         client.publish(f"{TOPIC_BASE}{bin_id}/{msg_type.lower()}", payload=payload[msg_type.lower()], qos=1)
                     

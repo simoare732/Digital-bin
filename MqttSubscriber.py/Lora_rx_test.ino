@@ -5,6 +5,8 @@
 #define LORA_RESET_PIN  9   // Reset (RST)
 #define LORA_IRQ_PIN    2   // Interrupt (DIO0)
 
+const byte RX = 0xAA; // Code of the LoRa Receiver
+
 String tx_msg = ""; 
 
 void setup() {
@@ -18,14 +20,31 @@ void setup() {
     while (1); 
   }
 
-  LoRa.receive();
+  //LoRa.receive();
 }
 
 void loop() {
 
+  //Ricezione
+  int packetSize = LoRa.parsePacket();
+  if (packetSize) {
+    byte recipient = LoRa.read();
+
+    String incoming = "";
+    while (LoRa.available()) {
+      incoming += (char)LoRa.read();
+    }
+
+    if(recipient == RX){
+      Serial.println(incoming);
+    }
+  }
+
   // Messages from Bridge
   if (Serial.available() > 0) {
     LoRa.beginPacket();
+    LoRa.write(0x01);
+    
     while (Serial.available()) {
       LoRa.write(Serial.read()); // Scrive i byte binari
     }

@@ -73,15 +73,6 @@ def on_message(client, userdata, msg):
         print(f"Errore scrittura seriale: {e}")
 
 
-def convert_json(id, dictionary):
-    message = {
-        id :[
-            dictionary
-        ]
-    }
-    return json.dumps(message)
-
-
 def serial_reader():
     """Thread per leggere dati dalla seriale e pubblicarli su MQTT."""
     print("Thread lettore seriale avviato...")
@@ -110,18 +101,15 @@ def serial_reader():
                 if msg_type == 'FILL' and len(parts) == 3:
                     # Formato: FILL,id,valore
                     payload = {"fill": parts[2]}
-                    msg = convert_json(bin_id, payload)
                 
                 elif msg_type == 'POSITION' and len(parts) >= 3:
                     # Formato: POSITION,id,lat,lon (o un altro formato)
                     # Qui uniamo lat e lon se sono separati
                     payload = {"lat": float(parts[2]), "lon": float(parts[3])}
-                    msg = convert_json(bin_id, payload)
 
                 elif msg_type == 'OVERTURN' and len(parts) == 3:
                     # Formato: OVERTURN,id,stato
                     payload = {"overturn": parts[2]}
-                    msg = convert_json(bin_id, payload)
                 
                 else:
                     print(f"Dato seriale non riconosciuto: {line}")

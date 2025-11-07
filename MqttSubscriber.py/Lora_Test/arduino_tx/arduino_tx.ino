@@ -1,3 +1,4 @@
+
 #include <SPI.h> 
 #include <LoRa.h> 
 //Dependencies for qrcode
@@ -13,7 +14,7 @@
 
 // ----- LoRa Pins -----
 #define LORA_CS_PIN     53  // Chip Select (NSS) - Pin SS hardware del Mega
-#define LORA_RESET_PIN  9   // Reset (RST)
+#define LORA_RESET_PIN  49   // Reset (RST)
 #define LORA_IRQ_PIN    2   // Interrupt (DIO0)
 
 // ----- Ultrasonic Sensor Pins -----
@@ -36,14 +37,14 @@ Servo servo;
 
 const int id = 1;
 
-const unsigned long delay_fill = 2000;  // Delay between two measurements of fill
+const byte RX = 0xAA; // Code of the LoRa Receiver
+const long lora_frequency = 433E6; // Frequency of LoRa module
+
+const unsigned long delay_fill = 3000;  // Delay between two measurements of fill
 unsigned long last_fill = 0;   // Timestamp of last measurement
 
 const unsigned long delay_overturn = 10000;  // Delay between two measurements of overturn
-unsigned long last_overturn = 0;  // Timestamp of last measurement
-
-const unsigned long delay_ping = 2000;
-unsigned long last_ping = 0;
+unsigned long last_overturn = 0;  // Timestamp of last measurement   
 
 enum RXState{
    WAIT_FOR_START,
@@ -68,6 +69,7 @@ const float turnZ = 9.80;
 
 void send_position(){
   LoRa.beginPacket();
+  LoRa.write(RX);
   LoRa.print("POSITION,");
   LoRa.print(id);
   LoRa.print(",");
@@ -81,13 +83,12 @@ void send_fill(){
   long distance=sr04.Distance();
 
   LoRa.beginPacket();
+  LoRa.write(RX);
   LoRa.print("FILL,");
   LoRa.print(id);
   LoRa.print(",");
-  LoRa.println(distance);
+  LoRa.print(distance);
   LoRa.endPacket();
-
-  LoRa.receive();
 }
 
 void send_overturn(){
@@ -97,68 +98,68 @@ void send_overturn(){
     isOverturn = true;
 
   LoRa.beginPacket();
+  LoRa.write(RX);
   LoRa.print("OVERTURN,");
   LoRa.print(id);
   LoRa.print(",");
-  LoRa.println(isOverturn);
-  LoRa.endPacket();
-
-  LoRa.receive();
-}
-
-void send_ping(){
-  LoRa.beginPacket();
-  LoRa.print("ping");
+  LoRa.print(isOverturn);
   LoRa.endPacket();
 }
 
 void checkSerialCommands() {
   int packetSize = LoRa.parsePacket();
-  if (packetSize == 0) return;
 
-  while (LoRa.available() > 0) {
-    byte inByte = LoRa.read();
+  if(packetSize){
+    String msg = "";
 
-    switch (currentRxState) {
-      
-      case WAIT_FOR_START:
-        // 1. Aspettiamo solo il byte d'inizio
-        if (inByte == 0xFE) {
-          currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
-        }
-        // Ignora qualsiasi altro byte
-        break;
+    while (LoRa.available()) {
+      byte inByte = Serial.read();
+      if(inByte != id) return; //Not for me
 
-      case WAIT_FOR_TYPE:
-        // 2. Il primo byte dopo START è il tipo di comando
-        cmd = inByte;
-
-        bufferIndex = 0;           // Resetta l'indice del buffer
-        currentRxState = RECEIVING_PAYLOAD; // Passa alla ricezione dati
-        break;
-
-      case RECEIVING_PAYLOAD:
-        // 3. Stiamo ricevendo i dati
-        if (inByte == 0xFF) {
-          // Trovato byte di fine! Pacchetto completo.
-          payloadBuffer[bufferIndex] = '\0'; // Termina la stringa
-          
-          // Esegui il comando
-          processCommand(cmd, String(payloadBuffer));
-          
-          // Torna allo stato iniziale, pronto per il prossimo pacchetto
-          currentRxState = WAIT_FOR_START; 
-          
-        } else {
-          // Aggiungi il byte al buffer del payload
-          if (bufferIndex < sizeof(payloadBuffer) - 1) {
-            payloadBuffer[bufferIndex] = (char)inByte;
-            bufferIndex++;
+      switch (currentRxState) {
+        
+        case WAIT_FOR_START:
+          // 1. Aspettiamo solo il byte d'inizio
+          if (inByte == 0xFE) {
+            //byte recipient = LoRa.read();  //Destinatario
+            //byte sender = LoRa.read();  // Mittente
+            //if(recipient == id && sender == RX)
+              currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
           }
-          // (Se il buffer è pieno, i dati extra vengono ignorati
-          //  fino all'arrivo di END_BYTE, prevenendo overflow)
-        }
-        break;
+          // Ignora qualsiasi altro byte
+          break;
+
+        case WAIT_FOR_TYPE:
+          // 2. Il primo byte dopo START è il tipo di comando
+          cmd = inByte;
+
+          bufferIndex = 0;           // Resetta l'indice del buffer
+          currentRxState = RECEIVING_PAYLOAD; // Passa alla ricezione dati
+          break;
+
+        case RECEIVING_PAYLOAD:
+          // 3. Stiamo ricevendo i dati
+          if (inByte == 0xFF) {
+            // Trovato byte di fine! Pacchetto completo.
+            payloadBuffer[bufferIndex] = '\0'; // Termina la stringa
+            
+            // Esegui il comando
+            processCommand(cmd, String(payloadBuffer));
+            
+            // Torna allo stato iniziale, pronto per il prossimo pacchetto
+            currentRxState = WAIT_FOR_START; 
+            
+          } else {
+            // Aggiungi il byte al buffer del payload
+            if (bufferIndex < sizeof(payloadBuffer) - 1) {
+              payloadBuffer[bufferIndex] = (char)inByte;
+              bufferIndex++;
+            }
+            // (Se il buffer è pieno, i dati extra vengono ignorati
+            //  fino all'arrivo di END_BYTE, prevenendo overflow)
+          }
+          break;
+      }
     }
   }
 }
@@ -182,7 +183,7 @@ void processCommand(byte commandType, String payload){
         String dirStr = payload.substring(commaIndex+1);
         dirStr.trim();
 
-        if(distance == 0 && dirStr == "ok"){
+        if(distance == 0 && dirStr == 'ok'){
           display.clearDisplay();
           display.display();
           break;
@@ -347,22 +348,18 @@ void setup() {
   display.clearDisplay();
   display.display();
 
-  LoRa.receive();
-
 }
 
 void loop() {
-  if(millis() - last_fill >= delay_fill){
-    last_fill = millis();
-    send_fill();
-  }
+   if(millis() - last_fill >= delay_fill){
+      last_fill = millis();
+      send_fill();
+   }
    
-  if(millis() - last_overturn >= delay_overturn){
-    last_overturn = millis();
-    send_overturn();
-  }
+   if(millis() - last_overturn >= delay_overturn){
+      last_overturn = millis();
+      send_overturn();
+   }
 
-  checkSerialCommands();
-   
+   checkSerialCommands();
 }
-

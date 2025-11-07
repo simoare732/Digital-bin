@@ -1,6 +1,7 @@
 
 #include <SPI.h> 
 #include <LoRa.h> 
+#include <MFRC522.h>
 //Dependencies for qrcode
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -24,6 +25,10 @@
 // ----- Servo Pin -----
 #define SERVO_PIN 9
 
+// ----- RFID Pin ------
+#define RC522_SS_PIN 47
+#define RC522_RST_PIN 48
+
 // ----- Impostazioni Display -----
 #define SCREEN_WIDTH 128 
 #define SCREEN_HEIGHT 64 
@@ -33,7 +38,10 @@
 SR04 sr04 = SR04(ECHO_PIN,TRIG_PIN);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // BNO055
+MFRC522 rfid(RC522_SS_PIN, RC522_RST_PIN);
 Servo servo;
+
+byte defaultCard[4] = { 0xA3, 0xB3, 0x14, 0x35 };
 
 const int id = 1;
 
@@ -89,6 +97,8 @@ void send_fill(){
   LoRa.print(",");
   LoRa.print(distance);
   LoRa.endPacket();
+
+  //LoRa.receive();
 }
 
 void send_overturn(){
@@ -104,6 +114,8 @@ void send_overturn(){
   LoRa.print(",");
   LoRa.print(isOverturn);
   LoRa.endPacket();
+
+  //LoRa.receive();
 }
 
 void checkSerialCommands() {
@@ -128,7 +140,7 @@ void checkSerialCommands() {
             //byte recipient = LoRa.read();  //Destinatario
             //byte sender = LoRa.read();  // Mittente
             //if(recipient == id && sender == RX)
-              currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
+            currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
           }
           // Ignora qualsiasi altro byte
           break;
@@ -325,12 +337,56 @@ void showDirections(int distance, char dir) {
   display.display();
 }
 
+/**
+ * @brief Controlla la presenza di un tag RFID e muove il servo se l'UID corrisponde.
+ * QUESTA E' LA FUNZIONE CHE HAI CHIESTO.
+ */
+void checkRFID() {
+  // Cerca un nuovo tag (questa funzione non è bloccante)
+  if (!rfid.PICC_IsNewCardPresent()) {
+    return; // Niente tag, esci
+  }
+
+  // Prova a leggerlo
+  if (!rfid.PICC_ReadCardSerial()) {
+    return; // Lettura fallita, esci
+  }
+
+  // Confronta l'UID letto con il tuo UID di default
+  if (compareUID(rfid.uid.uidByte, defaultCard, rfid.uid.size)) {    
+    servo.write(90); // Muove il servo a 90 gradi
+    delay(300);     // Attende 1 secondo
+    servo.write(0);  // Ritorna alla posizione 0
+    
+  }
+
+  // "Parcheggia" il tag per evitare di leggerlo di nuovo subito
+  rfid.PICC_HaltA();
+}
+
+/**
+ * @brief Funzione helper per confrontare due array di byte (gli UID).
+ * @return true se sono identici, false altrimenti.
+ */
+bool compareUID(byte scannedUID[], byte masterUID[], byte size) {
+  for (byte i = 0; i < size; i++) {
+    if (scannedUID[i] != masterUID[i]) {
+      return false; // Appena trova un byte diverso, esce
+    }
+  }
+  return true; // Se il loop finisce senza differenze, sono identici
+}
+
 void setup() {
   servo.attach(SERVO_PIN);
   LoRa.setPins(LORA_CS_PIN, LORA_RESET_PIN, LORA_IRQ_PIN);
   Serial.begin(9600);
   delay(1000);
   //digitalWrite(LED, LOW);
+
+  SPI.begin();
+  rfid.PCD_Init();
+  rfid.PCD_DumpVersionToSerial(); 
 
   if (!LoRa.begin(433E6)) { 
     Serial.println("LoRa init failed!");
@@ -367,4 +423,6 @@ void loop() {
    }
 
    checkSerialCommands();
+
+   checkRFID();
 }

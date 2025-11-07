@@ -95,7 +95,7 @@ def on_message(client, userdata, msg):
     SUBSCRIBED_DATA[bin_id][data_key] = payload_value
 
     if data_key == "fill":
-        if int(payload_value) >= MAX_FILL:
+        if int(payload_value) >= MAX_FILL and int(SUBSCRIBED_DATA[bin_id]["lock"])==0:
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=1, qos=1)
             SUBSCRIBED_DATA[bin_id]["lock"] = 1
             nextBinDistace=1000

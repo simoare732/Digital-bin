@@ -49,16 +49,5 @@ void loop() {
       LoRa.write(Serial.read()); // Scrive i byte binari
     }
     LoRa.endPacket();
-    
-    // TORNA SUBITO IN ASCOLTO SU LORA
-    LoRa.receive(); 
-  }  
-  int packetSize = LoRa.parsePacket();
-  if (packetSize > 0) {
-    while (LoRa.available()) {
-      Serial.write(LoRa.read()); // Scrive i dati (inclusi \n)
-    }
-    // (Non serve tornare in LoRa.receive() perché 
-    // l'abbiamo già fatto dopo l'invio al punto 1)
-  } 
+  }
 }

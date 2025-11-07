@@ -14,7 +14,7 @@
 
 // ----- LoRa Pins -----
 #define LORA_CS_PIN     53  // Chip Select (NSS) - Pin SS hardware del Mega
-#define LORA_RESET_PIN  49   // Reset (RST)
+#define LORA_RESET_PIN  7   // Reset (RST)
 #define LORA_IRQ_PIN    2   // Interrupt (DIO0)
 
 // ----- Ultrasonic Sensor Pins -----
@@ -22,7 +22,7 @@
 #define ECHO_PIN 30
 
 // ----- Servo Pin -----
-#define SERVO_PIN 10
+#define SERVO_PIN 9
 
 // ----- Impostazioni Display -----
 #define SCREEN_WIDTH 128 
@@ -110,11 +110,15 @@ void checkSerialCommands() {
   int packetSize = LoRa.parsePacket();
 
   if(packetSize){
-    String msg = "";
+    byte recipient = LoRa.read();
+    if((int)recipient != id){  
+      while(LoRa.available()){LoRa.read();}
+      return;
+    }
 
     while (LoRa.available()) {
-      byte inByte = Serial.read();
-      if(inByte != id) return; //Not for me
+      byte inByte = LoRa.read();
+      Serial.println(inByte);
 
       switch (currentRxState) {
         
@@ -165,6 +169,7 @@ void checkSerialCommands() {
 }
 
 void processCommand(byte commandType, String payload){
+  Serial.println(payload);
   switch(commandType){
     case CMD_LOCK:
       if(payload.toInt() == 1) servo.write(90);

@@ -15,7 +15,7 @@
 
 // ----- LoRa Pins -----
 #define LORA_CS_PIN     53  // Chip Select (NSS) - Pin SS hardware del Mega
-#define LORA_RESET_PIN  7   // Reset (RST)
+#define LORA_RESET_PIN  9   // Reset (RST)
 #define LORA_IRQ_PIN    2   // Interrupt (DIO0)
 
 // ----- Ultrasonic Sensor Pins -----
@@ -23,7 +23,7 @@
 #define ECHO_PIN 30
 
 // ----- Servo Pin -----
-#define SERVO_PIN 9
+#define SERVO_PIN 10
 
 // ----- RFID Pin ------
 #define RC522_SS_PIN 47
@@ -33,12 +33,12 @@
 #define SCREEN_WIDTH 128 
 #define SCREEN_HEIGHT 64 
 #define OLED_RESET -1    
-#define SCREEN_ADDRESS 0x3C 
+#define SCREEN_ADDRESS 0x3C
 
 SR04 sr04 = SR04(ECHO_PIN,TRIG_PIN);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // BNO055
-MFRC522 rfid(RC522_SS_PIN, RC522_RST_PIN);
+//MFRC522 rfid(RC522_SS_PIN, RC522_RST_PIN);
 Servo servo;
 
 byte defaultCard[4] = { 0xA3, 0xB3, 0x14, 0x35 };
@@ -47,7 +47,6 @@ const int id = 1;
 const byte START_SEQUENCE = 0x01; 
 const byte MY_ADDRESS = 0xAB;     
 
-const byte RX = 0xAA; // Code of the LoRa Receiver
 const long lora_frequency = 433E6; // Frequency of LoRa module
 
 const unsigned long delay_fill = 3000;  // Delay between two measurements of fill
@@ -80,7 +79,7 @@ const float turnZ = 9.80;
 
 void send_position(){
   LoRa.beginPacket();
-  LoRa.write(RX);
+  LoRa.write(START_SEQUENCE);
   LoRa.print("POSITION,");
   LoRa.print(id);
   LoRa.print(",");
@@ -93,8 +92,10 @@ void send_position(){
 void send_fill(){
   long distance=sr04.Distance();
 
+  Serial.println(distance);
+
   LoRa.beginPacket();
-  LoRa.write(RX);
+  LoRa.write(START_SEQUENCE);
   LoRa.print("FILL,");
   LoRa.print(id);
   LoRa.print(",");
@@ -111,7 +112,7 @@ void send_overturn(){
     isOverturn = true;
 
   LoRa.beginPacket();
-  LoRa.write(RX);
+  LoRa.write(START_SEQUENCE);
   LoRa.print("OVERTURN,");
   LoRa.print(id);
   LoRa.print(",");
@@ -137,7 +138,7 @@ uint16_t calculateCRC16(byte *data, int length) {
   return crc;
 }
 
-void send_CRC(byte *rx_buffer,int pos_buf){
+void send_CRC(byte *rx_buffer, int pos_buf){
       uint16_t receivedCRC = calculateCRC16(rx_buffer, pos_buf);
       LoRa.beginPacket();
       LoRa.write(START_SEQUENCE);
@@ -224,6 +225,7 @@ void processCommand(byte commandType, String payload){
       break;
     
     case CMD_LCD:
+      Serial.println("Codice lcd corretto");
       int commaIndex = payload.indexOf(',');
       int distance = 0;
       char dir = '?';
@@ -243,6 +245,10 @@ void processCommand(byte commandType, String payload){
         
         if(dirStr.length() > 0)dir = dirStr[0];
       }
+      Serial.print("Distanza e dir: ");
+      Serial.print(distance);
+      Serial.print(" ");
+      Serial.println(dir);
       showDirections(distance, dir);
       break;
     
@@ -376,6 +382,7 @@ void showDirections(int distance, char dir) {
  * @brief Controlla la presenza di un tag RFID e muove il servo se l'UID corrisponde.
  * QUESTA E' LA FUNZIONE CHE HAI CHIESTO.
  */
+/*
 void checkRFID() {
   // Cerca un nuovo tag (questa funzione non è bloccante)
   if (!rfid.PICC_IsNewCardPresent()) {
@@ -397,7 +404,7 @@ void checkRFID() {
 
   // "Parcheggia" il tag per evitare di leggerlo di nuovo subito
   rfid.PICC_HaltA();
-}
+}*/
 
 /**
  * @brief Funzione helper per confrontare due array di byte (gli UID).
@@ -420,8 +427,8 @@ void setup() {
   //digitalWrite(LED, LOW);
 
   SPI.begin();
-  rfid.PCD_Init();
-  rfid.PCD_DumpVersionToSerial(); 
+  //rfid.PCD_Init();
+  //rfid.PCD_DumpVersionToSerial(); 
 
   if (!LoRa.begin(433E6)) { 
     Serial.println("LoRa init failed!");
@@ -459,5 +466,5 @@ void loop() {
 
    checkSerialCommands();
 
-   checkRFID();
+   //checkRFID();
 }

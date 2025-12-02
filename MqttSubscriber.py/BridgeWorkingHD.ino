@@ -15,6 +15,7 @@ bool waitingForAck = false;
 const long ackTimeout = 10000;
 unsigned long lastSendTime = 0;
 uint16_t lastSentCRC = 0;
+uint8_t max_retry = 3;
 
 void setup() {
   Serial.begin(9600);
@@ -101,6 +102,12 @@ void handle_lora_reception() {
   }
 }
 
+void ackReceived() {
+  waitingForAck = false;
+  pos = 0; // Svuota il buffer, pronto per nuovi dati
+}
+
+
 void loop() {
 
 
@@ -123,13 +130,21 @@ void loop() {
 
   if (waitingForAck) {
     if (millis() - lastSendTime > ackTimeout) {
-      Serial.println("ACK TIMEOUT...");
-      send_data();
+      if(max_retry>0){
+        Serial.println("ACK TIMEOUT. Riprovo...");
+        send_data();
+        max_retry--;
+      }else{
+        max_retry=3;
+        waitingForAck=false;
+        pos=0;
+        Serial.println("BIN NOT AVAIABLE!");
+      }
     }
     
   } else {
     if (pos > 0) {
-      Serial.println("New Data from serial, sendig...");
+      Serial.println("Dati pronti, inizio invio...");
       send_data();
     }
   }

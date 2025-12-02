@@ -137,7 +137,7 @@ uint16_t calculateCRC16(byte *data, int length) {
   return crc;
 }
 
-void send_CRC(rx_buffer, pos_buf){
+void send_CRC(byte *rx_buffer,int pos_buf){
       uint16_t receivedCRC = calculateCRC16(rx_buffer, pos_buf);
       LoRa.beginPacket();
       LoRa.write(START_SEQUENCE);

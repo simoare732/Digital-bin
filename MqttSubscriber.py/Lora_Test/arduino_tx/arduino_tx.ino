@@ -44,6 +44,8 @@ Servo servo;
 byte defaultCard[4] = { 0xA3, 0xB3, 0x14, 0x35 };
 
 const int id = 1;
+const byte START_SEQUENCE = 0x01; 
+const byte MY_ADDRESS = 0xAB;     
 
 const byte RX = 0xAA; // Code of the LoRa Receiver
 const long lora_frequency = 433E6; // Frequency of LoRa module
@@ -59,6 +61,7 @@ enum RXState{
    WAIT_FOR_TYPE,
    RECEIVING_PAYLOAD
 };
+
 RXState currentRxState = WAIT_FOR_START;
 byte cmd; //Command received
 char payloadBuffer[100]; //Buffer where receive the payload from Bridge
@@ -118,64 +121,96 @@ void send_overturn(){
   //LoRa.receive();
 }
 
+uint16_t calculateCRC16(byte *data, int length) {
+  uint16_t crc = 0xFFFF; 
+  
+  for (int i = 0; i < length; i++) {
+    crc ^= (uint16_t)data[i] << 8;
+    for (int j = 0; j < 8; j++) {
+      if (crc & 0x8000) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+    }
+  }
+  return crc;
+}
+
+void send_CRC(rx_buffer, pos_buf){
+      uint16_t receivedCRC = calculateCRC16(rx_buffer, pos_buf);
+      LoRa.beginPacket();
+      LoRa.write(START_SEQUENCE);
+        
+      LoRa.write((byte)(receivedCRC & 0xFF)); 
+      LoRa.write((byte)(receivedCRC >> 8));  
+        
+      LoRa.endPacket();
+      pos_buf=0;
+}
+
 void checkSerialCommands() {
+  byte rx_buffer[32];
+  int pos_buf=0;
   int packetSize = LoRa.parsePacket();
 
   if(packetSize){
-    byte recipient = LoRa.read();
-    if((int)recipient != id){  
-      while(LoRa.available()){LoRa.read();}
-      return;
-    }
+    byte startSQ = (byte)LoRa.read();
+    byte addr = (byte)LoRa.read();
+    if(startSQ==START_SEQUENCE and addr==MY_ADDRESS){
+      while (LoRa.available()) {
+        byte inByte = LoRa.read();
+        rx_buffer[pos_buf] = inByte;
+        pos_buf++;
+      
+        Serial.println(inByte);
 
-    while (LoRa.available()) {
-      byte inByte = LoRa.read();
-      Serial.println(inByte);
-
-      switch (currentRxState) {
-        
-        case WAIT_FOR_START:
-          // 1. Aspettiamo solo il byte d'inizio
-          if (inByte == 0xFE) {
-            //byte recipient = LoRa.read();  //Destinatario
-            //byte sender = LoRa.read();  // Mittente
-            //if(recipient == id && sender == RX)
-            currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
-          }
-          // Ignora qualsiasi altro byte
-          break;
-
-        case WAIT_FOR_TYPE:
-          // 2. Il primo byte dopo START è il tipo di comando
-          cmd = inByte;
-
-          bufferIndex = 0;           // Resetta l'indice del buffer
-          currentRxState = RECEIVING_PAYLOAD; // Passa alla ricezione dati
-          break;
-
-        case RECEIVING_PAYLOAD:
-          // 3. Stiamo ricevendo i dati
-          if (inByte == 0xFF) {
-            // Trovato byte di fine! Pacchetto completo.
-            payloadBuffer[bufferIndex] = '\0'; // Termina la stringa
-            
-            // Esegui il comando
-            processCommand(cmd, String(payloadBuffer));
-            
-            // Torna allo stato iniziale, pronto per il prossimo pacchetto
-            currentRxState = WAIT_FOR_START; 
-            
-          } else {
-            // Aggiungi il byte al buffer del payload
-            if (bufferIndex < sizeof(payloadBuffer) - 1) {
-              payloadBuffer[bufferIndex] = (char)inByte;
-              bufferIndex++;
+        switch (currentRxState) {
+          
+          case WAIT_FOR_START:
+            // 1. Aspettiamo solo il byte d'inizio
+            if (inByte == 0xFE) {
+              //byte recipient = LoRa.read();  //Destinatario
+              //byte sender = LoRa.read();  // Mittente
+              //if(recipient == id && sender == RX)
+              currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
             }
-            // (Se il buffer è pieno, i dati extra vengono ignorati
-            //  fino all'arrivo di END_BYTE, prevenendo overflow)
-          }
-          break;
+            // Ignora qualsiasi altro byte
+            break;
+
+          case WAIT_FOR_TYPE:
+            // 2. Il primo byte dopo START è il tipo di comando
+            cmd = inByte;
+
+            bufferIndex = 0;           // Resetta l'indice del buffer
+            currentRxState = RECEIVING_PAYLOAD; // Passa alla ricezione dati
+            break;
+
+          case RECEIVING_PAYLOAD:
+            // 3. Stiamo ricevendo i dati
+            if (inByte == 0xFF) {
+              // Trovato byte di fine! Pacchetto completo.
+              payloadBuffer[bufferIndex] = '\0'; // Termina la stringa
+              
+              // Esegui il comando
+              processCommand(cmd, String(payloadBuffer));
+              
+              // Torna allo stato iniziale, pronto per il prossimo pacchetto
+              currentRxState = WAIT_FOR_START; 
+              
+            } else {
+              // Aggiungi il byte al buffer del payload
+              if (bufferIndex < sizeof(payloadBuffer) - 1) {
+                payloadBuffer[bufferIndex] = (char)inByte;
+                bufferIndex++;
+              }
+              // (Se il buffer è pieno, i dati extra vengono ignorati
+              //  fino all'arrivo di END_BYTE, prevenendo overflow)
+            }
+            break;
+        }
       }
+      send_CRC(rx_buffer, pos_buf);
     }
   }
 }

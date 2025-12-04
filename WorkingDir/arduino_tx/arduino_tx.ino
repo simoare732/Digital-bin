@@ -1,4 +1,3 @@
-
 #include <SPI.h> 
 #include <LoRa.h> 
 #include <MFRC522.h>
@@ -13,6 +12,9 @@
 #include <SR04.h>
 #include <Servo.h>
 
+// ----- Buzzer pin -----
+#define BUZZER_PIN 8
+
 // ----- LoRa Pins -----
 #define LORA_CS_PIN     53  // Chip Select (NSS) - Pin SS hardware del Mega
 #define LORA_RESET_PIN  9   // Reset (RST)
@@ -26,8 +28,8 @@
 #define SERVO_PIN 10
 
 // ----- RFID Pin ------
-#define RC522_SS_PIN 47
-#define RC522_RST_PIN 48
+//#define RC522_SS_PIN 47
+//#define RC522_RST_PIN 48
 
 // ----- Impostazioni Display -----
 #define SCREEN_WIDTH 128 
@@ -51,6 +53,7 @@ const long lora_frequency = 433E6; // Frequency of LoRa module
 
 const unsigned long delay_fill = 3000;  // Delay between two measurements of fill
 unsigned long last_fill = 0;   // Timestamp of last measurement
+const unsigned int max_distance = 35;
 
 const unsigned long delay_overturn = 10000;  // Delay between two measurements of overturn
 unsigned long last_overturn = 0;  // Timestamp of last measurement   
@@ -70,8 +73,8 @@ const byte CMD_UNKNOWN = 0x00;
 const byte CMD_LOCK = 0x01;
 const byte CMD_LCD = 0x02;
 
-const float lat = 44.65;
-const float lon = 10.93;
+const float lat = 41.9028;
+const float lon = 12.4964;
 
 //Normal position of BNO055
 const float turnY = 0.40;
@@ -90,9 +93,12 @@ void send_position(){
 }
 
 void send_fill(){
-  long distance=sr04.Distance();
+  long distanceRaw=sr04.Distance();
+  int distance = converte_distance(distanceRaw);
 
-  Serial.println(distance);
+  Serial.print(distance);
+  Serial.print(" ");
+  Serial.println(distanceRaw);
 
   LoRa.beginPacket();
   LoRa.write(START_SEQUENCE);
@@ -110,7 +116,7 @@ void send_overturn(){
   bool isOverturn = false;
   if(abs(gravity.y() - turnY) > 1 && abs(gravity.z() - turnZ) > 1)
     isOverturn = true;
-
+  
   LoRa.beginPacket();
   LoRa.write(START_SEQUENCE);
   LoRa.print("OVERTURN,");
@@ -120,6 +126,13 @@ void send_overturn(){
   LoRa.endPacket();
 
   //LoRa.receive();
+}
+
+int converte_distance(int d){
+  int dist = constrain(d, 0, max_distance);
+  int distanceConverted = map(dist, 0, max_distance, 100, 0);
+
+  return distanceConverted;
 }
 
 uint16_t calculateCRC16(byte *data, int length) {

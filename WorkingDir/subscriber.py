@@ -103,10 +103,10 @@ def on_message(client, userdata, msg):
             for key in SUBSCRIBED_DATA:
                 if key != bin_id:
                     if int(SUBSCRIBED_DATA[key]["lock"]) == 0:
-                        tmpDistance = bin_distance(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["long"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["long"]))
+                        tmpDistance = bin_distance(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["lon"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["lon"]))
                         if tmpDistance < nextBinDistace:
                             nextBinDistace = tmpDistance
-                            direction = next_bin_direction(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["long"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["long"]))
+                            direction = next_bin_direction(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["lon"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["lon"]))
                         
             if nextBinDistace < 1000:
                 client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=f"{nextBinDistace},{direction}", qos=1)
@@ -114,7 +114,7 @@ def on_message(client, userdata, msg):
             else:
                 client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
                 SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
-        elif(int(SUBSCRIBED_DATA[bin_id]["lock"])==1):
+        elif(int(SUBSCRIBED_DATA[bin_id]["lock"])==1 and int(SUBSCRIBED_DATA[bin_id]["fill"])<MAX_FILL):
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=0, qos=1)
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
             SUBSCRIBED_DATA[bin_id]["lock"] = 0

@@ -22,7 +22,7 @@ TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/"
 topic_sub_lock = TOPIC_BASE + '+/lock'
 topic_sub_lcd = TOPIC_BASE + '+/lcd'
 
-def read_password_from_file(file_name="./MqttSubscriber.py/token.txt"):
+def read_password_from_file(file_name="./WorkingDir/token.txt"):
     try:
         with open(file_name, 'r', encoding='utf-8') as file:
             password = file.read().strip()
@@ -42,6 +42,22 @@ def on_connect(client, userdata, flags, rc):
         print("Connected with result code", rc)
         client.subscribe(topic_sub_lock)
         client.subscribe(topic_sub_lcd)
+        id_1 = 2 
+        data_1 = {
+            "lat": 41.9078, 
+            "lon": 12.4964, 
+            "overturn": False,
+            "fill": 10
+        }
+
+        TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/{id_1}"
+        for key, value in data_1.items():
+            
+            full_topic = f"{TOPIC_BASE}/{key}"
+            payload_str = str(value) 
+            
+            client.publish(full_topic, payload=payload_str, qos=1)
+            print(f"Sent: '{payload_str}' to topic: '{full_topic}'")
     else:
         print("Connection failed with code", rc)
 

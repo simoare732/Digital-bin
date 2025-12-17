@@ -77,8 +77,8 @@ const float lat = 41.9028;
 const float lon = 12.4964;
 
 //Normal position of BNO055
-const float turnY = 0.40;
-const float turnZ = 9.80;
+const float turnY = 9.63;
+const float turnZ = -0.62;
 
 void send_position(){
   LoRa.beginPacket();

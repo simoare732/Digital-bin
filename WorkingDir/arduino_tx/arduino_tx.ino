@@ -28,24 +28,32 @@
 #define SERVO_PIN 10
 
 // ----- RFID Pin ------
-//#define RC522_SS_PIN 47
-//#define RC522_RST_PIN 48
+#define RC522_SS_PIN 49
+#define RC522_RST_PIN 48
 
-// ----- Impostazioni Display -----
+// ------ Display settings -----
 #define SCREEN_WIDTH 128 
 #define SCREEN_HEIGHT 64 
 #define OLED_RESET -1    
 #define SCREEN_ADDRESS 0x3C
 
+// Ultrasonic sensor 
 SR04 sr04 = SR04(ECHO_PIN,TRIG_PIN);
+// Display
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+// Rollover sensor
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // BNO055
-//MFRC522 rfid(RC522_SS_PIN, RC522_RST_PIN);
+// NFC Sensor
+MFRC522 rfid(RC522_SS_PIN, RC522_RST_PIN);
+// Servo motor
 Servo servo;
 
+// Hex code of the accepted card
 byte defaultCard[4] = { 0xA3, 0xB3, 0x14, 0x35 };
 
+// Bin id
 const int id = 1;
+// Addressing for LoRa
 const byte START_SEQUENCE = 0x01; 
 const byte MY_ADDRESS = 0xAB;     
 
@@ -53,11 +61,12 @@ const long lora_frequency = 433E6; // Frequency of LoRa module
 
 const unsigned long delay_fill = 3000;  // Delay between two measurements of fill
 unsigned long last_fill = 0;   // Timestamp of last measurement
-const unsigned int max_distance = 35;
+const unsigned int max_distance = 35; // Height in cm of the bin
 
 const unsigned long delay_overturn = 10000;  // Delay between two measurements of overturn
 unsigned long last_overturn = 0;  // Timestamp of last measurement   
 
+// States of communication LoRa
 enum RXState{
    WAIT_FOR_START,
    WAIT_FOR_TYPE,
@@ -80,6 +89,8 @@ const float lon = 12.4964;
 const float turnY = 9.63;
 const float turnZ = -0.62;
 
+
+// Function to send position of bin from Arduino on Bin to Arduino Receiver
 void send_position(){
   LoRa.beginPacket();
   LoRa.write(START_SEQUENCE);
@@ -92,12 +103,14 @@ void send_position(){
   LoRa.endPacket();
 }
 
+// Function to send level of filling (%) from Arduino on Bin to Arduino Receiver
 void send_fill(){
   long distanceRaw=sr04.Distance();
   int distance = converte_distance(distanceRaw);
 
+  Serial.print("Distance: ");
   Serial.print(distance);
-  Serial.print(" ");
+  Serial.print(" , DistanceRaw: ");
   Serial.println(distanceRaw);
 
   LoRa.beginPacket();
@@ -107,10 +120,9 @@ void send_fill(){
   LoRa.print(",");
   LoRa.print(distance);
   LoRa.endPacket();
-
-  //LoRa.receive();
 }
 
+// Function to send a boolean of overturn from Arduino on Bin to Arduino Receiver
 void send_overturn(){
   imu::Vector<3> gravity = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
   bool isOverturn = false;
@@ -124,10 +136,9 @@ void send_overturn(){
   LoRa.print(",");
   LoRa.print(isOverturn);
   LoRa.endPacket();
-
-  //LoRa.receive();
 }
 
+// Function to convert the filling level from cm to %
 int converte_distance(int d){
   int dist = constrain(d, 0, max_distance);
   int distanceConverted = map(dist, 0, max_distance, 100, 0);
@@ -135,6 +146,7 @@ int converte_distance(int d){
   return distanceConverted;
 }
 
+// Function to calculate CRC
 uint16_t calculateCRC16(byte *data, int length) {
   uint16_t crc = 0xFFFF; 
   
@@ -151,6 +163,7 @@ uint16_t calculateCRC16(byte *data, int length) {
   return crc;
 }
 
+// Function to send CRC back to the device as Acknowledge 
 void send_CRC(byte *rx_buffer, int pos_buf){
       uint16_t receivedCRC = calculateCRC16(rx_buffer, pos_buf);
       LoRa.beginPacket();
@@ -163,15 +176,20 @@ void send_CRC(byte *rx_buffer, int pos_buf){
       pos_buf=0;
 }
 
+// Function to check the command sent from device. It reads the command byte per byte using FSM. 
+// When the Arduino has read the message, it sends back an Ack message to device
 void checkSerialCommands() {
   byte rx_buffer[32];
   int pos_buf=0;
   int packetSize = LoRa.parsePacket();
 
+  // If there are some messages in LoRa buffer, read them
   if(packetSize){
+    // Start reading the first two bytes, to ensure the message is for it
     byte startSQ = (byte)LoRa.read();
     byte addr = (byte)LoRa.read();
     if(startSQ==START_SEQUENCE and addr==MY_ADDRESS){
+      // For each byte, read it
       while (LoRa.available()) {
         byte inByte = LoRa.read();
         rx_buffer[pos_buf] = inByte;
@@ -182,44 +200,40 @@ void checkSerialCommands() {
         switch (currentRxState) {
           
           case WAIT_FOR_START:
-            // 1. Aspettiamo solo il byte d'inizio
+            // 1. We wait the starting byte FE
             if (inByte == 0xFE) {
-              //byte recipient = LoRa.read();  //Destinatario
-              //byte sender = LoRa.read();  // Mittente
-              //if(recipient == id && sender == RX)
-              currentRxState = WAIT_FOR_TYPE; // Trovato! Passa allo stato successivo
+              currentRxState = WAIT_FOR_TYPE; // Ok, we pass to next state
             }
-            // Ignora qualsiasi altro byte
+            // If other bytes are read, ignore them
             break;
 
           case WAIT_FOR_TYPE:
-            // 2. Il primo byte dopo START è il tipo di comando
+            // 2. The first byte read after the starting byte, is the type of command
             cmd = inByte;
 
-            bufferIndex = 0;           // Resetta l'indice del buffer
-            currentRxState = RECEIVING_PAYLOAD; // Passa alla ricezione dati
+            bufferIndex = 0;           // Reset buffer index
+            currentRxState = RECEIVING_PAYLOAD; // Now we pass to receive data
             break;
 
           case RECEIVING_PAYLOAD:
-            // 3. Stiamo ricevendo i dati
+            // 3. We are receiving data until the final byte FF
             if (inByte == 0xFF) {
-              // Trovato byte di fine! Pacchetto completo.
-              payloadBuffer[bufferIndex] = '\0'; // Termina la stringa
+              // Final byte found.
+              payloadBuffer[bufferIndex] = '\0'; // Finish the string
               
-              // Esegui il comando
+              // Perform command
               processCommand(cmd, String(payloadBuffer));
               
-              // Torna allo stato iniziale, pronto per il prossimo pacchetto
+              // Return to initial state for new commands
               currentRxState = WAIT_FOR_START; 
               
             } else {
-              // Aggiungi il byte al buffer del payload
+              // If we are not finished to read,continue
               if (bufferIndex < sizeof(payloadBuffer) - 1) {
                 payloadBuffer[bufferIndex] = (char)inByte;
                 bufferIndex++;
               }
-              // (Se il buffer è pieno, i dati extra vengono ignorati
-              //  fino all'arrivo di END_BYTE, prevenendo overflow)
+              // If buffer is full, ignore other bytes until the end byte, to prevent overflow
             }
             break;
         }
@@ -233,8 +247,8 @@ void processCommand(byte commandType, String payload){
   Serial.println(payload);
   switch(commandType){
     case CMD_LOCK:
-      if(payload.toInt() == 1) servo.write(90);
-      if(payload.toInt() == 0) servo.write(0);
+      if(payload.toInt() == 1) closeBin();
+      if(payload.toInt() == 0) openBin();
       break;
     
     case CMD_LCD:
@@ -391,38 +405,29 @@ void showDirections(int distance, char dir) {
   display.display();
 }
 
-/**
- * @brief Controlla la presenza di un tag RFID e muove il servo se l'UID corrisponde.
- * QUESTA E' LA FUNZIONE CHE HAI CHIESTO.
- */
-/*
+// Function to check if NFC card corresponds to the default one, you can open the bin
 void checkRFID() {
-  // Cerca un nuovo tag (questa funzione non è bloccante)
+  // Search a new tag
   if (!rfid.PICC_IsNewCardPresent()) {
-    return; // Niente tag, esci
+    return; // If no tag, exit
   }
 
-  // Prova a leggerlo
+  // Try to read it
   if (!rfid.PICC_ReadCardSerial()) {
-    return; // Lettura fallita, esci
+    return; // Failed read, exit
   }
 
-  // Confronta l'UID letto con il tuo UID di default
+  // Compare the read UID with the default one, if they are equal, you can open
   if (compareUID(rfid.uid.uidByte, defaultCard, rfid.uid.size)) {    
-    servo.write(90); // Muove il servo a 90 gradi
-    delay(300);     // Attende 1 secondo
-    servo.write(0);  // Ritorna alla posizione 0
-    
+    Serial.println("Card read");
+    openBin();    
   }
 
   // "Parcheggia" il tag per evitare di leggerlo di nuovo subito
   rfid.PICC_HaltA();
-}*/
+}
 
-/**
- * @brief Funzione helper per confrontare due array di byte (gli UID).
- * @return true se sono identici, false altrimenti.
- */
+// Helper function to compare two UID
 bool compareUID(byte scannedUID[], byte masterUID[], byte size) {
   for (byte i = 0; i < size; i++) {
     if (scannedUID[i] != masterUID[i]) {
@@ -432,16 +437,25 @@ bool compareUID(byte scannedUID[], byte masterUID[], byte size) {
   return true; // Se il loop finisce senza differenze, sono identici
 }
 
+// Function to open the bin
+void openBin(){
+  servo.write(90);
+}
+
+// Function to close the bin
+void closeBin(){
+  servo.write(0);
+}
+
 void setup() {
   servo.attach(SERVO_PIN);
   LoRa.setPins(LORA_CS_PIN, LORA_RESET_PIN, LORA_IRQ_PIN);
   Serial.begin(9600);
   delay(1000);
-  //digitalWrite(LED, LOW);
 
   SPI.begin();
-  //rfid.PCD_Init();
-  //rfid.PCD_DumpVersionToSerial(); 
+  rfid.PCD_Init();
+  rfid.PCD_DumpVersionToSerial(); 
 
   if (!LoRa.begin(433E6)) { 
     Serial.println("LoRa init failed!");
@@ -458,6 +472,7 @@ void setup() {
     while (1);
   }
   bno.setExtCrystalUse(true);
+  openBin();
 
   send_position();
 
@@ -479,5 +494,5 @@ void loop() {
 
    checkSerialCommands();
 
-   //checkRFID();
+   checkRFID();
 }

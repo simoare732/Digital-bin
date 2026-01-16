@@ -9,7 +9,7 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 
-#include <SR04.h>
+#include <HCSR04.h>
 #include <Servo.h>
 
 // ----- Buzzer pin -----
@@ -38,7 +38,7 @@
 #define SCREEN_ADDRESS 0x3C
 
 // Ultrasonic sensor 
-SR04 sr04 = SR04(ECHO_PIN,TRIG_PIN);
+UltraSonicDistanceSensor distanceSensor(TRIG_PIN, ECHO_PIN);
 // Display
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // Rollover sensor
@@ -103,6 +103,8 @@ void send_position(){
   LoRa.endPacket();
 }
 
+/*
+//OLD
 // Function to send level of filling (%) from Arduino on Bin to Arduino Receiver
 void send_fill(){
   long distanceRaw=sr04.Distance();
@@ -119,6 +121,29 @@ void send_fill(){
   LoRa.print(id);
   LoRa.print(",");
   LoRa.print(distance);
+  LoRa.endPacket();
+}*/
+
+void send_fill(){
+  // La libreria restituisce la distanza in float. Se non legge nulla restituisce -1.0
+  float reading = distanceSensor.measureDistanceCm();
+  
+  // Se la lettura fallisce (-1), consideriamo il bidone come "pieno" o usiamo il max_distance
+  if(reading < 0) reading = max_distance; 
+
+  int distanceRaw = (int)reading;
+  int distancePercent = converte_distance(distanceRaw);
+
+  Serial.print("Dist: "); Serial.print(distancePercent);
+  Serial.print("% , Raw: "); Serial.println(distanceRaw);
+
+  // Invio LoRa (tua logica originale)
+  LoRa.beginPacket();
+  LoRa.write(START_SEQUENCE);
+  LoRa.print("FILL,");
+  LoRa.print(id);
+  LoRa.print(",");
+  LoRa.print(distancePercent);
   LoRa.endPacket();
 }
 

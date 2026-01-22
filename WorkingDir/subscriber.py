@@ -9,7 +9,7 @@ import json
 BROKER_HOST = "3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud" 
 PORT = 8883 
 CLIENT_ID = "subscriber_1"
-USERNAME = "bridge" 
+USERNAME = "bridge1" 
 TOPIC_TO_SUBSCRIBE= "hivemq/ahfgnsad439/BINs/#"
 SUBSCRIBED_DATA = {} 
 GATEWAY_TOKEN = ""
@@ -90,7 +90,7 @@ def publish_gateway_data(gateway_token, bin_id, telemetries):
     script_dir = Path(__file__).parent.resolve()
     password_file = script_dir / "token_tib"
     GATEWAY_TOKEN = read_password_from_file(password_file)
-    print(GATEWAY_TOKEN)
+    #print(GATEWAY_TOKEN)
 
     url = f"https://thingboard.faffofvtt.work:443/api/v1/{GATEWAY_TOKEN}/telemetry"
     headers = {'Content-Type': 'application/json'}
@@ -105,14 +105,15 @@ def publish_gateway_data(gateway_token, bin_id, telemetries):
         ]
     }
     
-    try:
-        response = requests.post(url, data=json.dumps(payload), headers=headers, timeout=5)
-        if response.status_code == 200:
-            print(f"Dati Gateway inviati: {bin_id} -> ThingsBoard")
-        else:
-            print(f"Errore Gateway: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"Errore connessione Gateway: {e}")
+    
+    #try:
+    response = requests.post(url, data=json.dumps(payload), headers=headers, timeout=5)
+    #    if response.status_code == 200:
+      #      print(f"Dati Gateway inviati: {bin_id} -> ThingsBoard")
+      #  else:
+       #     print(f"Errore Gateway: {response.status_code} - {response.text}")
+    # except Exception as e:
+      #  print(f"Errore connessione Gateway: {e}")
 
 def on_message(client, userdata, msg):
     """Callback new message"""
@@ -153,7 +154,7 @@ def on_message(client, userdata, msg):
                         
             if nextBinDistace < 1000:
                 nextBinDistace=round(nextBinDistace, 0)
-                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=f"{nextBinDistace, 0},{direction}", qos=1)
+                client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=f"{int(nextBinDistace)},{direction}", qos=1)
                 SUBSCRIBED_DATA[bin_id]["lcd"] = f"{nextBinDistace},{direction}"
                 telemetries={"lcd":f"{nextBinDistace},{direction}"}
                 publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)  

@@ -1,10 +1,16 @@
+'''
+Docstring for WorkingDir.subscriber
+'''
+
 import paho.mqtt.client as mqtt
 import ssl
 import os
 from pathlib import Path
+from paho.mqtt.enums import CallbackAPIVersion
 import math
-import requests
 import json
+import time
+
 
 BROKER_HOST = "3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud" 
 PORT = 8883 
@@ -12,9 +18,14 @@ CLIENT_ID = "subscriber_1"
 USERNAME = "bridge1" 
 TOPIC_TO_SUBSCRIBE= "hivemq/ahfgnsad439/BINs/#"
 SUBSCRIBED_DATA = {} 
-GATEWAY_TOKEN = ""
+
+THINGSBOARD_HOST = "mqtt.faffofvtt.work"
+MQTT_TOPIC = "v1/gateway/telemetry"
+GATEWAY_ACCESS_TOKEN = ""
 
 MAX_FILL = 50
+
+
 
 def read_password_from_file(file_name):
     try:
@@ -82,40 +93,10 @@ def bin_distance(lat1, lon1, lat2, lon2):
     
     return distance
 
-def publish_gateway_data(gateway_token, bin_id, telemetries):
-    """
-    Invia dati a ThingsBoard tramite un unico Gateway.
-    Format: {"NomeCestino": [{"key": "value"}, ...]}
-    """
-    script_dir = Path(__file__).parent.resolve()
-    password_file = script_dir / "token_tib"
-    GATEWAY_TOKEN = read_password_from_file(password_file)
-    #print(GATEWAY_TOKEN)
-
-    url = f"https://thingboard.faffofvtt.work:443/api/v1/{GATEWAY_TOKEN}/telemetry"
-    headers = {'Content-Type': 'application/json'}
-    
-    # Formato richiesto dal Gateway di ThingsBoard
-    payload = {
-        bin_id: [
-            {
-                "ts":None,
-                "values":  telemetries
-            }
-        ]
-    }
-    
-    
-    #try:
-    response = requests.post(url, data=json.dumps(payload), headers=headers, timeout=5)
-    #    if response.status_code == 200:
-      #      print(f"Dati Gateway inviati: {bin_id} -> ThingsBoard")
-      #  else:
-       #     print(f"Errore Gateway: {response.status_code} - {response.text}")
-    # except Exception as e:
-      #  print(f"Errore connessione Gateway: {e}")
-
 def on_message(client, userdata, msg):
+
+    client0 = userdata["client0"]
+
     """Callback new message"""
     bin_id = msg.topic.split("/")[-2]
     data_key = msg.topic.split("/")[-1]
@@ -127,21 +108,17 @@ def on_message(client, userdata, msg):
         client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
         SUBSCRIBED_DATA[bin_id]["lock"] = 0
         SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
-        telemetries={"lock":0}
-        publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)    
-        telemetries={"lcd":"0,ok"}
-        publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)    
+        send_data_to_thingsboard(client0, bin_id, "lock", 0)
+        send_data_to_thingsboard(client0, bin_id, "lcd", "0,ok")    
 
     SUBSCRIBED_DATA[bin_id][data_key] = payload_value
-    telemetries={data_key:payload_value}
-    publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)
+    send_data_to_thingsboard(client0, bin_id, data_key, payload_value)
 
     if data_key == "fill":
         if int(payload_value) >= MAX_FILL and int(SUBSCRIBED_DATA[bin_id]["lock"])==0:
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=1, qos=1)
             SUBSCRIBED_DATA[bin_id]["lock"] = 1
             telemetries={"lock":1}
-            publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)  
             nextBinDistace=1000
             direction="none"
             for key in SUBSCRIBED_DATA:
@@ -157,12 +134,10 @@ def on_message(client, userdata, msg):
                 client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=f"{int(nextBinDistace)},{direction}", qos=1)
                 SUBSCRIBED_DATA[bin_id]["lcd"] = f"{nextBinDistace},{direction}"
                 telemetries={"lcd":f"{nextBinDistace},{direction}"}
-                publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)  
             else:
                 client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
                 SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
                 telemetries={"lcd":"0,ok"}
-                publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)   
 
         elif(int(SUBSCRIBED_DATA[bin_id]["lock"])==1 and int(SUBSCRIBED_DATA[bin_id]["fill"])<MAX_FILL):
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=0, qos=1)
@@ -170,9 +145,7 @@ def on_message(client, userdata, msg):
             SUBSCRIBED_DATA[bin_id]["lock"] = 0
             SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
             telemetries={"lock":0}
-            publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)    
             telemetries={"lcd":"0,ok"}
-            publish_gateway_data(GATEWAY_TOKEN, bin_id, telemetries)    
 
     print(SUBSCRIBED_DATA)
     print("\n")
@@ -180,7 +153,43 @@ def on_message(client, userdata, msg):
 def on_publish(client, userdata, mid):
     pass 
 
+def on_connect_0(client, userdata, flags, rc):
+    if rc == 0:
+        print("Gateway Thingsboard connected!\n")
+    else:
+        print(f"Error Gateway Thingsboard: {rc}\n")
+
+def send_data_to_thingsboard(client0, binID, telemetry, value):
+    payload = {
+            f"Bin_{binID}": [
+                {
+                    "ts": int(round(time.time() * 1000)), 
+                    "values": {
+                        f"{telemetry}": f"{value}"
+                    }
+                }
+            ]
+        }
+    
+    client0.publish(MQTT_TOPIC, json.dumps(payload), qos=1)
+        
+    print(f"Data sent to Thingsboard: {payload}\n")
+
 def main():
+
+    script_dir = Path(__file__).parent.resolve()
+    password_file = script_dir / "tokenTB.txt"
+    GATEWAY_ACCESS_TOKEN = read_password_from_file(password_file)
+
+    if not GATEWAY_ACCESS_TOKEN:
+        print(f"Error password can not be null")
+        return -1
+    
+    client0 = mqtt.Client(CallbackAPIVersion.VERSION1)
+    client0.username_pw_set(GATEWAY_ACCESS_TOKEN)
+    client0.on_connect = on_connect_0
+    client0.connect(THINGSBOARD_HOST, 1883, 60)
+    client0.loop_start()
 
     script_dir = Path(__file__).parent.resolve()
     password_file = script_dir / "token.txt"
@@ -190,8 +199,7 @@ def main():
         print(f"Error password can not be null")
         return -1
 
-
-    client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
+    client = mqtt.Client(CallbackAPIVersion.VERSION1, client_id=CLIENT_ID, protocol=mqtt.MQTTv311, userdata={'client0': client0})
     client.on_connect = on_connect
     client.on_message = on_message
     client.on_publish = on_publish

@@ -4,6 +4,9 @@ import serial
 import threading
 import time
 import json
+import os
+from pathlib import Path
+
 
 SERIAL_PORT = '/dev/ttyACM0'
 BAUD_RATE = 9600
@@ -12,7 +15,7 @@ ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
 BROKER = '3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud'
 PORT = 8883 
 CLIENT_ID = "bridge_publisher"
-USERNAME = "bridge" 
+USERNAME = "bridge1" 
 
 #topic_pub_fill = '/BINs/+/fill'
 #topic_pub_position = '/BINs/+/position'
@@ -22,17 +25,20 @@ TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/"
 topic_sub_lock = TOPIC_BASE + '+/lock'
 topic_sub_lcd = TOPIC_BASE + '+/lcd'
 
-def read_password_from_file(file_name="./WorkingDir/token.txt"):
+script_dir = Path(__file__).parent.resolve()
+password_file = script_dir / "token.txt"
+
+def read_password_from_file(file_name=password_file):
     try:
         with open(file_name, 'r', encoding='utf-8') as file:
             password = file.read().strip()
             return password
             
     except FileNotFoundError:
-        print(f"❌ Error: The file '{file_name}' was not found.")
+        print(f"Error: The file '{file_name}' was not found.")
         return None
     except Exception as e:
-        print(f"⚠️ An error occurred while reading the file: {e}")
+        print(f"An error occurred while reading the file: {e}")
         return None
 
 PASSWORD = read_password_from_file()

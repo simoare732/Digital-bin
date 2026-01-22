@@ -29,10 +29,10 @@ def read_password_from_file(file_name="./WorkingDir/token.txt"):
             return password
             
     except FileNotFoundError:
-        print(f"❌ Error: The file '{file_name}' was not found.")
+        print(f"Error: The file '{file_name}' was not found.")
         return None
     except Exception as e:
-        print(f"⚠️ An error occurred while reading the file: {e}")
+        print(f"An error occurred while reading the file: {e}")
         return None
 
 PASSWORD = read_password_from_file()
@@ -42,6 +42,8 @@ def on_connect(client, userdata, flags, rc):
         print("Connected with result code", rc)
         client.subscribe(topic_sub_lock)
         client.subscribe(topic_sub_lcd)
+
+        #Fake Data
         id_1 = 2 
         data_1 = {
             "lat": 41.9078, 

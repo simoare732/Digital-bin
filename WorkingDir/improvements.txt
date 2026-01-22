@@ -1,0 +1,6 @@
+///Arduino_tx.ino
+Perchè abbiamo sia un Id che un Address? rimuovere uno dei due
+Fare in modo che l'Id non sia hardcoded ma sia fornito dal Bridge 
+Rispettare i vincoli di trasmissione, 1 pacchetto ogni 3/4 minuti 
+Implementare una effettiva macchina a stati nel loop
+

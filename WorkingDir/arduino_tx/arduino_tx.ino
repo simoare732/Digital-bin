@@ -1,7 +1,6 @@
 #include <SPI.h> 
 #include <LoRa.h> 
 #include <MFRC522.h>
-//Dependencies for qrcode
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -16,7 +15,7 @@
 #define BUZZER_PIN 8
 
 // ----- LoRa Pins -----
-#define LORA_CS_PIN     53  // Chip Select (NSS) - Pin SS hardware del Mega
+#define LORA_CS_PIN     53  // Chip Select (NSS)
 #define LORA_RESET_PIN  9   // Reset (RST)
 #define LORA_IRQ_PIN    2   // Interrupt (DIO0)
 
@@ -124,11 +123,11 @@ void send_fill(){
   LoRa.endPacket();
 }*/
 
+bool isOpen = true;
+
 void send_fill(){
-  // La libreria restituisce la distanza in float. Se non legge nulla restituisce -1.0
   float reading = distanceSensor.measureDistanceCm();
   
-  // Se la lettura fallisce (-1), consideriamo il bidone come "pieno" o usiamo il max_distance
   if(reading < 0) reading = max_distance; 
 
   int distanceRaw = (int)reading;
@@ -137,7 +136,8 @@ void send_fill(){
   Serial.print("Dist: "); Serial.print(distancePercent);
   Serial.print("% , Raw: "); Serial.println(distanceRaw);
 
-  // Invio LoRa (tua logica originale)
+
+  // Make LoRa packet
   LoRa.beginPacket();
   LoRa.write(START_SEQUENCE);
   LoRa.print("FILL,");
@@ -271,12 +271,16 @@ void checkSerialCommands() {
 void processCommand(byte commandType, String payload){
   Serial.println(payload);
   switch(commandType){
-    case CMD_LOCK:
-      if(payload.toInt() == 1) closeBin();
+    case CMD_LOCK: {
+      if(payload.toInt() == 1){
+        closeBin();
+        isOpen=false;
+      }
       if(payload.toInt() == 0) openBin();
       break;
+    }
     
-    case CMD_LCD:
+    case CMD_LCD: {
       Serial.println("Codice lcd corretto");
       int commaIndex = payload.indexOf(',');
       int distance = 0;
@@ -289,7 +293,7 @@ void processCommand(byte commandType, String payload){
         String dirStr = payload.substring(commaIndex+1);
         dirStr.trim();
 
-        if(distance == 0 && dirStr == 'ok'){
+        if(distance == 0 && dirStr == "ok"){
           display.clearDisplay();
           display.display();
           break;
@@ -303,6 +307,7 @@ void processCommand(byte commandType, String payload){
       Serial.println(dir);
       showDirections(distance, dir);
       break;
+    }
     
     default:
       break;
@@ -445,7 +450,10 @@ void checkRFID() {
   // Compare the read UID with the default one, if they are equal, you can open
   if (compareUID(rfid.uid.uidByte, defaultCard, rfid.uid.size)) {    
     Serial.println("Card read");
-    openBin();    
+    if(!isOpen){
+       openBin();    
+       isOpen=true; 
+    }
   }
 
   // "Parcheggia" il tag per evitare di leggerlo di nuovo subito
@@ -464,12 +472,18 @@ bool compareUID(byte scannedUID[], byte masterUID[], byte size) {
 
 // Function to open the bin
 void openBin(){
-  servo.write(90);
+  for(int i=0; i<90; i++){
+      servo.write(i);
+      delay(20);
+  }
 }
 
 // Function to close the bin
 void closeBin(){
-  servo.write(0);
+  for(int i=90; i>0; i--){
+      servo.write(i);
+      delay(20);
+  }
 }
 
 void setup() {

@@ -1,0 +1,12 @@
+adafruit_bno055_offsets_t myOffsets;
+myOffsets.accel_offset_x = -23;
+myOffsets.accel_offset_y = -7;
+myOffsets.accel_offset_z = 29;
+myOffsets.gyro_offset_x = -2;
+myOffsets.gyro_offset_y = 1;
+myOffsets.gyro_offset_z = -1;
+myOffsets.mag_offset_x = 60;
+myOffsets.mag_offset_y = 64;
+myOffsets.mag_offset_z = 462;
+myOffsets.accel_radius = 1000;
+myOffsets.mag_radius = 665;

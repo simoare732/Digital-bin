@@ -58,11 +58,11 @@ const byte MY_ADDRESS = 0xAB;
 
 const long lora_frequency = 433E6; // Frequency of LoRa module
 
-const unsigned long delay_fill = 3000;  // Delay between two measurements of fill
+const unsigned long delay_fill = 10000;  // Delay between two measurements of fill
 unsigned long last_fill = 0;   // Timestamp of last measurement
-const unsigned int max_distance = 35; // Height in cm of the bin
+const unsigned int max_distance = 38; // Height in cm of the bin
 
-const unsigned long delay_overturn = 10000;  // Delay between two measurements of overturn
+const unsigned long delay_overturn = 15000;  // Delay between two measurements of overturn
 unsigned long last_overturn = 0;  // Timestamp of last measurement   
 
 // States of communication LoRa
@@ -150,6 +150,12 @@ void send_fill(){
 // Function to send a boolean of overturn from Arduino on Bin to Arduino Receiver
 void send_overturn(){
   imu::Vector<3> gravity = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+
+  Serial.print("overturn: y "); Serial.println(gravity.y());
+  Serial.print("overturn: x "); Serial.println(gravity.x());
+  Serial.print("overturn: z "); Serial.println(gravity.z());
+
+  
   bool isOverturn = false;
   if(abs(gravity.y() - turnY) > 1 && abs(gravity.z() - turnZ) > 1)
     isOverturn = true;
@@ -276,10 +282,7 @@ void processCommand(byte commandType, String payload){
         closeBin();
         isOpen=false;
       }
-      if(payload.toInt() == 0) {
-        openBin();
-        isOpen=true;
-      }
+      if(payload.toInt() == 0) openBin();
       break;
     }
     

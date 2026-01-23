@@ -23,8 +23,7 @@ THINGSBOARD_HOST = "mqtt.faffofvtt.work"
 MQTT_TOPIC = "v1/gateway/telemetry"
 GATEWAY_ACCESS_TOKEN = ""
 
-MAX_FILL = 50
-
+MAX_FILL = 80
 
 
 def read_password_from_file(file_name):
@@ -117,13 +116,14 @@ def on_message(client, userdata, msg):
     if data_key == "fill":
         if int(payload_value) >= MAX_FILL and int(SUBSCRIBED_DATA[bin_id]["lock"])==0:
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=1, qos=1)
+            send_data_to_thingsboard(client0, bin_id, "lock", 0)
             SUBSCRIBED_DATA[bin_id]["lock"] = 1
-            telemetries={"lock":1}
+
             nextBinDistace=1000
             direction="none"
             for key in SUBSCRIBED_DATA:
                 if key != bin_id:
-                    if int(SUBSCRIBED_DATA[key]["lock"]) == 0:
+                    if int(SUBSCRIBED_DATA[key]["lock"]) == 0 and ("lat" in SUBSCRIBED_DATA[key]) and ("lon" in SUBSCRIBED_DATA[key]):
                         tmpDistance = bin_distance(float(SUBSCRIBED_DATA[bin_id]["lat"]), float(SUBSCRIBED_DATA[bin_id]["lon"]), float(SUBSCRIBED_DATA[key]["lat"]), float(SUBSCRIBED_DATA[key]["lon"]))
                         if tmpDistance < nextBinDistace:
                             nextBinDistace = tmpDistance
@@ -133,19 +133,19 @@ def on_message(client, userdata, msg):
                 nextBinDistace=round(nextBinDistace, 0)
                 client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload=f"{int(nextBinDistace)},{direction}", qos=1)
                 SUBSCRIBED_DATA[bin_id]["lcd"] = f"{nextBinDistace},{direction}"
-                telemetries={"lcd":f"{nextBinDistace},{direction}"}
+                send_data_to_thingsboard(client0, bin_id, "lcd", f"{nextBinDistace},{direction}")    
             else:
                 client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
                 SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
-                telemetries={"lcd":"0,ok"}
+                send_data_to_thingsboard(client0, bin_id, "lcd", "0,ok")  
 
         elif(int(SUBSCRIBED_DATA[bin_id]["lock"])==1 and int(SUBSCRIBED_DATA[bin_id]["fill"])<MAX_FILL):
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=0, qos=1)
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lcd", payload="0,ok", qos=1)
             SUBSCRIBED_DATA[bin_id]["lock"] = 0
             SUBSCRIBED_DATA[bin_id]["lcd"] = "0,ok"
-            telemetries={"lock":0}
-            telemetries={"lcd":"0,ok"}
+            send_data_to_thingsboard(client0, bin_id, "lock", 0)
+            send_data_to_thingsboard(client0, bin_id, "lcd", "0,ok")   
 
     print(SUBSCRIBED_DATA)
     print("\n")

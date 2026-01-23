@@ -276,7 +276,10 @@ void processCommand(byte commandType, String payload){
         closeBin();
         isOpen=false;
       }
-      if(payload.toInt() == 0) openBin();
+      if(payload.toInt() == 0) {
+        openBin();
+        isOpen=true;
+      }
       break;
     }
     

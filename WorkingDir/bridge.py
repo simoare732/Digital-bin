@@ -52,8 +52,8 @@ def on_connect(client, userdata, flags, rc):
         #Fake Data
         id_1 = 2 
         data_1 = {
-            "lat": 41.9078, 
-            "lon": 12.4964, 
+            "lat": 44.628444, 
+            "lon": 10.909944, 
             "overturn": False,
             "fill": 10
         }

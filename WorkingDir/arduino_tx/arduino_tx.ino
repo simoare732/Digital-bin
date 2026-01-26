@@ -87,8 +87,8 @@ const float lat = 41.9028;
 const float lon = 12.4964;
 
 //Normal position of BNO055
-const float turnY = 9.63;
-const float turnZ = -0.62;
+const float turnY = 0.63;
+const float turnZ = 9.78;
 
 
 // Function to send position of bin from Arduino on Bin to Arduino Receiver
@@ -103,27 +103,6 @@ void send_position(){
   LoRa.println(lon);
   LoRa.endPacket();
 }
-
-/*
-//OLD
-// Function to send level of filling (%) from Arduino on Bin to Arduino Receiver
-void send_fill(){
-  long distanceRaw=sr04.Distance();
-  int distance = converte_distance(distanceRaw);
-
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.print(" , DistanceRaw: ");
-  Serial.println(distanceRaw);
-
-  LoRa.beginPacket();
-  LoRa.write(START_SEQUENCE);
-  LoRa.print("FILL,");
-  LoRa.print(id);
-  LoRa.print(",");
-  LoRa.print(distance);
-  LoRa.endPacket();
-}*/
 
 bool isOpen = true;
 
@@ -149,13 +128,16 @@ void send_fill(){
   LoRa.endPacket();
 }
 
-// Function to send a boolean of overturn from Arduino on Bin to Arduino Receiver
 void send_overturn(){
   imu::Vector<3> gravity = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
-  
+ 
   bool isOverturn = false;
-  if(abs(gravity.y() - turnY) > 1 && abs(gravity.z() - turnZ) > 1)
+  if(abs(gravity.y() - turnY) > 1 or abs(gravity.z() - turnZ) > 1)
     isOverturn = true;
+    
+  //Serial.print("gravity y: "); Serial.println(abs(gravity.y() - turnY));
+  //Serial.print("gravity z: "); Serial.println(abs(gravity.z() - turnZ));
+  //Serial.print("over: "); Serial.println(isOverturn);
   
   LoRa.beginPacket();
   LoRa.write(START_SEQUENCE);

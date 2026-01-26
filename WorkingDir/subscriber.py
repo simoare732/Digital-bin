@@ -48,7 +48,7 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"connection failed error code: {rc}")
 
-def next_bin_direction_8(lat1, lon1, lat2, lon2):
+def next_bin_direction(lat1, lon1, lat2, lon2):
     #0=U, 45=N, 90=R, 135=E, 180=D, 225=S, 270=L, 315=O
     directions = ["U", "N", "R", "E", "D", "S", "L", "O"]
 

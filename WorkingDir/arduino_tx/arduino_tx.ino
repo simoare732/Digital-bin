@@ -83,8 +83,8 @@ const byte CMD_UNKNOWN = 0x00;
 const byte CMD_LOCK = 0x01;
 const byte CMD_LCD = 0x02;
 
-const float lat = 41.9028;
-const float lon = 12.4964;
+const float lat = 44.632444;
+const float lon = 10.910944;
 
 //Normal position of BNO055
 const float turnY = 0.63;

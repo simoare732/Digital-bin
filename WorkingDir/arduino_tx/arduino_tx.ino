@@ -42,6 +42,8 @@ UltraSonicDistanceSensor distanceSensor(TRIG_PIN, ECHO_PIN);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // Rollover sensor
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28); // BNO055
+
+
 // NFC Sensor
 MFRC522 rfid(RC522_SS_PIN, RC522_RST_PIN);
 // Servo motor
@@ -150,11 +152,6 @@ void send_fill(){
 // Function to send a boolean of overturn from Arduino on Bin to Arduino Receiver
 void send_overturn(){
   imu::Vector<3> gravity = bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY);
-
-  Serial.print("overturn: y "); Serial.println(gravity.y());
-  Serial.print("overturn: x "); Serial.println(gravity.x());
-  Serial.print("overturn: z "); Serial.println(gravity.z());
-
   
   bool isOverturn = false;
   if(abs(gravity.y() - turnY) > 1 && abs(gravity.z() - turnZ) > 1)
@@ -287,7 +284,6 @@ void processCommand(byte commandType, String payload){
     }
     
     case CMD_LCD: {
-      Serial.println("Codice lcd corretto");
       int commaIndex = payload.indexOf(',');
       int distance = 0;
       char dir = '?';
@@ -321,124 +317,142 @@ void processCommand(byte commandType, String payload){
 }
 
 void showDirections(int distance, char dir) {
-  
-  // 1. Pulisci il buffer (sfondo NERO)
-  display.clearDisplay(); 
-  
-  // 2. Imposta il colore del testo/disegno su BIANCO
+
+  display.clearDisplay();
   display.setTextColor(SSD1306_WHITE); 
 
-  // --- Linea 1: "XXX m" (es. 100 m) ---
-  
+  // --- "XXX m" (es. 100 m) ---
   String distStr = String(distance) + " m"; 
-  display.setTextSize(2); // Dimensione testo media
-  
+  display.setTextSize(2);
   int16_t x1_text, y1_text;
   uint16_t w_text, h_text;
-  
   display.getTextBounds(distStr, 0, 0, &x1_text, &y1_text, &w_text, &h_text);
-  
   int16_t x_pos_1 = (SCREEN_WIDTH - w_text) / 2;
-  int16_t y_pos_1 = 4; // 4 pixel dall'alto (nella zona gialla)
-  
+  int16_t y_pos_1 = 4;
   display.setCursor(x_pos_1, y_pos_1);
   display.print(distStr);
 
-  // --- Linea 2: Disegna la Freccia Completa ---
-  
-  // Punto di riferimento centrale per la freccia (nella zona blu)
-  int16_t center_x = SCREEN_WIDTH / 2; // Centro X = 64
-  int16_t center_y = 44; // Centro Y (verticale) nella zona blu (16-64)
-  
-  int16_t arrowHeadSize = 8; // Dimensione della punta del triangolo
-  int16_t arrowShaftWidth = 4; // Larghezza dell'asta della freccia
-  int16_t arrowShaftLength = 16; // Lunghezza dell'asta della freccia
+  // --- Arrow ---
+  int16_t center_x = SCREEN_WIDTH / 2;
+  int16_t center_y = 44;
 
-  switch (dir) {
-    
-    case 'U': // Freccia SU
-      // Asta (rettangolo verticale)
-      display.fillRect(
-        center_x - arrowShaftWidth / 2, // X inizio asta
-        center_y - arrowShaftLength / 2, // Y inizio asta
-        arrowShaftWidth, // Larghezza
-        arrowShaftLength, // Altezza
-        SSD1306_WHITE
-      );
-      // Punta (triangolo)
-      display.fillTriangle(
-        center_x, center_y - arrowShaftLength / 2 - arrowHeadSize, // Punta in alto
-        center_x - arrowHeadSize, center_y - arrowShaftLength / 2, // Base sinistra
-        center_x + arrowHeadSize, center_y - arrowShaftLength / 2, // Base destra
-        SSD1306_WHITE
-      );
-      break;
+  // Leggi orientamento corrente del dispositivo (BNO055)
+  sensors_event_t event;
+  bno.getEvent(&event);
+  int16_t orientation = event.orientation.x; // 0° = Nord, 90° = Est, 180° = Sud, 270° = Ovest
 
-    case 'R': // Freccia DESTRA
-      // Asta (rettangolo orizzontale)
-      display.fillRect(
-        center_x - arrowShaftLength / 2, // X inizio asta
-        center_y - arrowShaftWidth / 2, // Y inizio asta
-        arrowShaftLength, // Lunghezza
-        arrowShaftWidth, // Larghezza
-        SSD1306_WHITE
-      );
-      // Punta (triangolo)
-      display.fillTriangle(
-        center_x + arrowShaftLength / 2 + arrowHeadSize, center_y, // Punta a destra
-        center_x + arrowShaftLength / 2, center_y - arrowHeadSize, // Base alta
-        center_x + arrowShaftLength / 2, center_y + arrowHeadSize, // Base bassa
-        SSD1306_WHITE
-      );
-      break;
+  Serial.print("orientation "); Serial.println(orientation);
 
-    case 'L': // Freccia SINISTRA
-      // Asta (rettangolo orizzontale)
-      display.fillRect(
-        center_x - arrowShaftLength / 2, // X inizio asta
-        center_y - arrowShaftWidth / 2, // Y inizio asta
-        arrowShaftLength, // Lunghezza
-        arrowShaftWidth, // Larghezza
-        SSD1306_WHITE
-      );
-      // Punta (triangolo)
-      display.fillTriangle(
-        center_x - arrowShaftLength / 2 - arrowHeadSize, center_y, // Punta a sinistra
-        center_x - arrowShaftLength / 2, center_y - arrowHeadSize, // Base alta
-        center_x - arrowShaftLength / 2, center_y + arrowHeadSize, // Base bassa
-        SSD1306_WHITE
-      );
-      break;
-
-    case 'D': // Freccia GIÙ
-      // Asta (rettangolo verticale)
-      display.fillRect(
-        center_x - arrowShaftWidth / 2, // X inizio asta
-        center_y - arrowShaftLength / 2, // Y inizio asta
-        arrowShaftWidth, // Larghezza
-        arrowShaftLength, // Altezza
-        SSD1306_WHITE
-      );
-      // Punta (triangolo)
-      display.fillTriangle(
-        center_x, center_y + arrowShaftLength / 2 + arrowHeadSize, // Punta in basso
-        center_x - arrowHeadSize, center_y + arrowShaftLength / 2, // Base sinistra
-        center_x + arrowHeadSize, center_y + arrowShaftLength / 2, // Base destra
-        SSD1306_WHITE
-      );
-      break;
-
-    default:
-      // Se il carattere non è riconosciuto, stampa un '?' al centro
-      display.setTextSize(3);
-      display.getTextBounds("?", 0, 0, &x1_text, &y1_text, &w_text, &h_text);
-      display.setCursor((SCREEN_WIDTH - w_text) / 2, 35);
-      display.print("?");
-      break;
+  // Mappa la direzione richiesta (U/R/D/L/O/N/E/S) agli angoli cardinali
+  int16_t targetAngle;
+  switch(dir) {
+    case 'U': targetAngle = 0;   break; // Nord
+    case 'N': targetAngle = 45;  break; // Nord-Est
+    case 'R': targetAngle = 90;  break; // Est
+    case 'E': targetAngle = 135; break; // Sud-Est
+    case 'D': targetAngle = 180; break; // Sud
+    case 'S': targetAngle = 225; break; // Sud-Ovest
+    case 'L': targetAngle = 270; break; // Ovest
+    case 'O': targetAngle = 315; break; // Nord-Ovest
+    default:  targetAngle = 0;   break;
   }
 
-  // 3. Invia il buffer al display per mostrarlo
+  // Calcola l'angolo relativo tra target e orientamento attuale
+  int16_t relativeAngle = targetAngle - orientation;
+  
+  // Normalizza tra 0-360
+  while (relativeAngle < 0) relativeAngle += 360;
+  while (relativeAngle >= 360) relativeAngle -= 360;
+
+  // COMPENSAZIONE DISPLAY RUOTATO DI 90° (orario)
+  relativeAngle = (relativeAngle + 270) % 360;
+
+  // Disegna la freccia con l'angolo preciso
+  drawRotatedArrow(center_x, center_y, relativeAngle);
+
+  // 3. Invia il buffer al display
   display.display();
+}
+
+// Funzione per disegnare una freccia ruotata di un angolo specifico
+void drawRotatedArrow(int16_t cx, int16_t cy, float angleDeg) {
+  // Converti angolo in radianti
+  float angleRad = angleDeg * PI / 180.0;
+ 
+  // Parametri freccia
+  int16_t arrowLength = 20;      // Lunghezza totale della freccia
+  int16_t arrowHeadLength = 8;   // Lunghezza della punta
+  int16_t arrowHeadWidth = 8;    // Larghezza della punta
+  int16_t shaftWidth = 3;        // Larghezza dell'asta
+  
+  // Calcola i punti della freccia (orientata verso l'alto, poi ruotata)
+  // Punta della freccia
+  float tipX = 0;
+  float tipY = -arrowLength;
+  
+  // Base della punta (dove inizia il triangolo)
+  float baseY = -arrowLength + arrowHeadLength;
+  
+  // Punti laterali della punta
+  float headLeftX = -arrowHeadWidth;
+  float headLeftY = baseY;
+  float headRightX = arrowHeadWidth;
+  float headRightY = baseY;
+  
+  // Asta (rettangolo)
+  float shaftTopY = baseY;
+  float shaftBottomY = arrowLength * 0.3; // L'asta arriva a 30% della lunghezza totale
+  float shaftLeftX = -shaftWidth / 2.0;
+  float shaftRightX = shaftWidth / 2.0;
+  
+  // Ruota e trasla tutti i punti
+  int16_t tipXr = cx + tipX * cos(angleRad) - tipY * sin(angleRad);
+  int16_t tipYr = cy + tipX * sin(angleRad) + tipY * cos(angleRad);
+  
+  int16_t headLeftXr = cx + headLeftX * cos(angleRad) - headLeftY * sin(angleRad);
+  int16_t headLeftYr = cy + headLeftX * sin(angleRad) + headLeftY * cos(angleRad);
+  
+  int16_t headRightXr = cx + headRightX * cos(angleRad) - headRightY * sin(angleRad);
+  int16_t headRightYr = cy + headRightX * sin(angleRad) + headRightY * cos(angleRad);
+  
+  // Punti dell'asta
+  int16_t shaftTL_Xr = cx + shaftLeftX * cos(angleRad) - shaftTopY * sin(angleRad);
+  int16_t shaftTL_Yr = cy + shaftLeftX * sin(angleRad) + shaftTopY * cos(angleRad);
+  
+  int16_t shaftTR_Xr = cx + shaftRightX * cos(angleRad) - shaftTopY * sin(angleRad);
+  int16_t shaftTR_Yr = cy + shaftRightX * sin(angleRad) + shaftTopY * cos(angleRad);
+  
+  int16_t shaftBL_Xr = cx + shaftLeftX * cos(angleRad) - shaftBottomY * sin(angleRad);
+  int16_t shaftBL_Yr = cy + shaftLeftX * sin(angleRad) + shaftBottomY * cos(angleRad);
+  
+  int16_t shaftBR_Xr = cx + shaftRightX * cos(angleRad) - shaftBottomY * sin(angleRad);
+  int16_t shaftBR_Yr = cy + shaftRightX * sin(angleRad) + shaftBottomY * cos(angleRad);
+  
+  // Disegna la punta (triangolo)
+  display.fillTriangle(
+    tipXr, tipYr,           // Punta
+    headLeftXr, headLeftYr, // Base sinistra
+    headRightXr, headRightYr, // Base destra
+    SSD1306_WHITE
+  );
+  
+  // Disegna l'asta (come due triangoli per formare un rettangolo)
+  display.fillTriangle(
+    shaftTL_Xr, shaftTL_Yr,
+    shaftTR_Xr, shaftTR_Yr,
+    shaftBL_Xr, shaftBL_Yr,
+    SSD1306_WHITE
+  );
+  
+  display.fillTriangle(
+    shaftTR_Xr, shaftTR_Yr,
+    shaftBR_Xr, shaftBR_Yr,
+    shaftBL_Xr, shaftBL_Yr,
+    SSD1306_WHITE
+  );
+  
+  // Opzionale: aggiungi un cerchio al centro per estetica
+  display.fillCircle(cx, cy, 2, SSD1306_WHITE);
 }
 
 // Function to check if NFC card corresponds to the default one, you can open the bin
@@ -524,6 +538,21 @@ void setup() {
   display.clearDisplay();
   display.display();
 
+  bno.setMode(OPERATION_MODE_NDOF);
+  adafruit_bno055_offsets_t myOffsets;
+  myOffsets.accel_offset_x = -23;
+  myOffsets.accel_offset_y = -7;
+  myOffsets.accel_offset_z = 29;
+  myOffsets.gyro_offset_x = -2;
+  myOffsets.gyro_offset_y = 1;
+  myOffsets.gyro_offset_z = -1;
+  myOffsets.mag_offset_x = 60;
+  myOffsets.mag_offset_y = 64;
+  myOffsets.mag_offset_z = 462;
+  myOffsets.accel_radius = 1000;
+  myOffsets.mag_radius = 665;
+  bno.setSensorOffsets(myOffsets);
+
 }
 
 void loop() {
@@ -538,6 +567,5 @@ void loop() {
    }
 
    checkSerialCommands();
-
    checkRFID();
 }

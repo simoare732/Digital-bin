@@ -48,9 +48,9 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"connection failed error code: {rc}")
 
-def next_bin_direction(lat1, lon1, lat2, lon2):
-
-    directions = ["U", "R", "D", "L"]
+def next_bin_direction_8(lat1, lon1, lat2, lon2):
+    #0=U, 45=N, 90=R, 135=E, 180=D, 225=S, 270=L, 315=O
+    directions = ["U", "N", "R", "E", "D", "S", "L", "O"]
 
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
@@ -60,17 +60,17 @@ def next_bin_direction(lat1, lon1, lat2, lon2):
     delta_lon_rad = lon2_rad - lon1_rad
 
     y = math.sin(delta_lon_rad) * math.cos(lat2_rad)
-    
     x = (math.cos(lat1_rad) * math.sin(lat2_rad)) - \
         (math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon_rad))
     
     bearing_rad = math.atan2(y, x)
-
     bearing_deg = math.degrees(bearing_rad)
 
-    index = round(((bearing_deg + 45) % 360) / 90) % 4
+    bearing_deg = (bearing_deg + 360) % 360
+
+    index = int(((bearing_deg + 22.5) % 360) // 45)
     
-    return directions[int(index)]
+    return directions[index]
 
 def bin_distance(lat1, lon1, lat2, lon2):
     EARTH = 6371000

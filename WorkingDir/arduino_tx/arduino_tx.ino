@@ -455,6 +455,7 @@ void checkRFID() {
     if(!isOpen){
        openBin();    
        isOpen=true; 
+       //delay(50000);
     }
   }
 

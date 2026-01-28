@@ -10,6 +10,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 import math
 import json
 import time
+from ml_engine import fillPredictor
 
 
 BROKER_HOST = "3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud" 
@@ -24,6 +25,8 @@ MQTT_TOPIC = "v1/gateway/telemetry"
 GATEWAY_ACCESS_TOKEN = ""
 
 MAX_FILL = 80
+
+model = fillPredictor()
 
 
 def read_password_from_file(file_name):
@@ -113,7 +116,12 @@ def on_message(client, userdata, msg):
     SUBSCRIBED_DATA[bin_id][data_key] = payload_value
     send_data_to_thingsboard(client0, bin_id, data_key, payload_value)
 
+    if data_key == "overturn":
+        is_overturn = payload_value.lower() == "true" or payload_value == "1"
+        model.set_overturn(bin_id, is_overturn)
+
     if data_key == "fill":
+        model.preprocess_and_store(bin_id, payload_value)
         if int(payload_value) >= MAX_FILL and int(SUBSCRIBED_DATA[bin_id]["lock"])==0:
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=1, qos=1)
             send_data_to_thingsboard(client0, bin_id, "lock", 0)
@@ -150,12 +158,49 @@ def on_message(client, userdata, msg):
     print(SUBSCRIBED_DATA)
     print("\n")
 
+def on_message_tb(client, userdata, msg):
+    """
+    Manages messages from Thingsboard.
+    """
+    try:
+        payload = json.loads(msg.payload.decode())
+        #print(f"[ThingsBoard RX] {payload}")
+        
+        # The gateway format is: {"device": "DeviceName", "data": {"key": "value"}}
+        device_name = payload.get("device") # Ex: "Bin_1"
+        data = payload.get("data")
+        
+        if data and "targetDate" in data:
+            target_date_str = data["targetDate"]
+            
+            # Extract the numeric ID from the name "Bin_X" -> "X"
+            if "_" in device_name:
+                bin_id = int(device_name.split("_")[1])
+            else:
+                bin_id = 0 # Fallback
+            
+            print(f"Prediction request for Bin {bin_id} on date {target_date_str}")
+            
+            # --- PREDICTION ---
+            try:
+                prediction = model.predict_fill_level(target_date_str, bin_id)
+                
+                send_data_to_thingsboard(client, bin_id, "predictedFill", prediction)
+                print(f"Prediction sent: {prediction}%")
+                
+            except Exception as e:
+                print(f"Error in prediction: {e}")
+
+    except Exception as e:
+        print(f"Error decoding TB message: {e}")
+
 def on_publish(client, userdata, mid):
     pass 
 
 def on_connect_0(client, userdata, flags, rc):
     if rc == 0:
         print("Gateway Thingsboard connected!\n")
+        client.subscribe("v1/gateway/attributes")
     else:
         print(f"Error Gateway Thingsboard: {rc}\n")
 
@@ -187,6 +232,7 @@ def main():
     
     client0 = mqtt.Client(CallbackAPIVersion.VERSION1)
     client0.username_pw_set(GATEWAY_ACCESS_TOKEN)
+    client0.on_message = on_message_tb # For messages from Thingsboard to Subscriber
     client0.on_connect = on_connect_0
     client0.connect(THINGSBOARD_HOST, 1883, 60)
     client0.loop_start()

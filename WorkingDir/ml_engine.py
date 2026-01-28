@@ -4,7 +4,7 @@ import json
 from os import path
 import math
 
-class BinPredictor:
+class fillPredictor:
     def __init__(self):
         # This will act as our 'training dataset'
         self.training_data = []
@@ -14,6 +14,8 @@ class BinPredictor:
         self.MIN_VAL = 0
         self.MAX_VAL = 100 
         self.MAX_TD = 10 # Max training data points in memory before saving to file
+
+        self.overturn = {}
 
     def _convert_cyclical(self, value, max_value):
         """
@@ -64,6 +66,12 @@ class BinPredictor:
         }
 
         return features
+    
+    def set_overturn(self, bin_id, is_overturn):
+        """
+        Set the overturn status for a specific bin.
+        """
+        self.overturn[bin_id] = is_overturn
 
     
     def save_data(self):
@@ -103,7 +111,7 @@ class BinPredictor:
             return
 
 
-    def preprocess_and_store(self, bin_id, raw_value, is_overturn):
+    def preprocess_and_store(self, bin_id, raw_value):
         """
         Phase 1 & 2: Cleaning and Storage.
         Takes the raw data, checks if it's valid, and saves it.
@@ -111,6 +119,8 @@ class BinPredictor:
         try:
             # Convert value to integer
             clean_value = int(float(raw_value))
+
+            is_overturn = self.overturn.get(bin_id, False)
             
             # Simple Outlier Detection: If value is out of range, discard it.
             if clean_value < self.MIN_VAL or clean_value > self.MAX_VAL or is_overturn:

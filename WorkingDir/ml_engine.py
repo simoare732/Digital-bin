@@ -32,7 +32,7 @@ class fillPredictor:
 
         # 1. Convert date to datetime object
         if isinstance(date, str):
-            dt_obj = datetime.datetime.strptime(date, "%Y-%m-%d")
+            dt_obj = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
         else:
             dt_obj = date
         
@@ -122,7 +122,7 @@ class fillPredictor:
 
             is_overturn = self.overturn.get(bin_id, False)
             
-            # Simple Outlier Detection: If value is out of range, discard it.
+            # Simple Outlier Detection: If value is out of range or bin is overturned, discard it.
             if clean_value < self.MIN_VAL or clean_value > self.MAX_VAL or is_overturn:
                 print(f"[ML-Engine] Data discarded (Outlier): {clean_value}")
                 return False
@@ -171,7 +171,3 @@ class fillPredictor:
         prediction = random.randint(self.MIN_VAL, self.MAX_VAL)
             
         return prediction
-
-    def get_dataset_stats(self):
-        """Funzione opzionale per vedere lo stato del 'training'"""
-        return f"Totale dati raccolti: {len(self.training_data)}"

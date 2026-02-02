@@ -14,7 +14,7 @@ class fillPredictor:
         # Limits for fill levels (%)
         self.MIN_VAL = 0
         self.MAX_VAL = 100 
-        self.MAX_TD = 3 # Max training data points in memory before saving to file
+        self.MAX_TD = 10 # Max training data points in memory before saving to file
 
         self.last_valid_value = 0
         self.overturn = {}
@@ -123,8 +123,6 @@ class fillPredictor:
             # Convert value to integer
             clean_value = int(raw_value)
 
-            print(f"[ML-Engine] Raw data received for Bin {bin_id}: {clean_value}%")
-
             is_overturn = self.overturn.get(bin_id, False)
             
             # Simple Outlier Detection: If value is out of range or bin is overturned, use last valid value.
@@ -138,11 +136,7 @@ class fillPredictor:
             # Add current timestamp
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            print(f"[ML-Engine] Clean data stored for Bin {bin_id}: {clean_value}%")
-
             features = self._extract_features(timestamp, bin_id)
-
-            print(f"[ML-Engine] Extracted features for Bin {bin_id}: {features}")
             
             # Simulate saving to dataset
             record = {
@@ -155,7 +149,6 @@ class fillPredictor:
                 self.save_data()
             
             # Just for debug, print how many data points we have collected
-            print(f"[ML-Engine] Clean data saved for Bin {bin_id}: {clean_value}% (Dataset size: {len(self.training_data)})")
             return True
 
         except ValueError:

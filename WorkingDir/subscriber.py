@@ -121,7 +121,7 @@ def on_message(client, userdata, msg):
         model.set_overturn(bin_id, is_overturn)
 
     if data_key == "fill":
-        model.preprocess_and_store(bin_id, int(payload_value))
+        model.preprocess_and_store(bin_id, payload_value)
         if int(payload_value) >= MAX_FILL and int(SUBSCRIBED_DATA[bin_id]["lock"])==0:
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=1, qos=1)
             send_data_to_thingsboard(client0, bin_id, "lock", 0)

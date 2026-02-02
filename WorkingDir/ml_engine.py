@@ -121,8 +121,7 @@ class fillPredictor:
         """
         try:
             # Convert value to integer
-            val_str = str(raw_value).strip().replace('\x00', '')
-            clean_value = int(float(val_str))
+            clean_value = int(float(raw_value))
 
             is_overturn = self.overturn.get(bin_id, False)
             

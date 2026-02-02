@@ -136,7 +136,7 @@ class fillPredictor:
             self.last_valid_value = clean_value
             
             # Add current timestamp
-            timestamp = datetime.datetime.now().isoformat()
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             print(f"[ML-Engine] Clean data stored for Bin {bin_id}: {clean_value}%")
 

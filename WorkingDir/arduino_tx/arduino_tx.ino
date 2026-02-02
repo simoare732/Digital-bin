@@ -90,6 +90,8 @@ const float lon = 10.910944;
 const float turnY = 0.63;
 const float turnZ = 9.78;
 
+char CurrentDirection;
+int CurrentDistance;
 
 // Function to send position of bin from Arduino on Bin to Arduino Receiver
 void send_position(){
@@ -290,6 +292,8 @@ void processCommand(byte commandType, String payload){
       Serial.print(" ");
       Serial.println(dir);
       showDirections(distance, dir);
+      CurrentDirection = dir;
+      CurrentDistance = distance;
       break;
     }
     

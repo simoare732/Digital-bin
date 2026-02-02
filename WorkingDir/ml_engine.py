@@ -121,7 +121,7 @@ class fillPredictor:
         """
         try:
             # Convert value to integer
-            clean_value = int(raw_value)
+            clean_value = int(float(raw_value))
 
             is_overturn = self.overturn.get(bin_id, False)
             

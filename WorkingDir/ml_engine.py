@@ -121,7 +121,9 @@ class fillPredictor:
         """
         try:
             # Convert value to integer
-            clean_value = int(float(raw_value))
+            clean_value = int(raw_value)
+
+            print(f"[ML-Engine] Raw data received for Bin {bin_id}: {clean_value}%")
 
             is_overturn = self.overturn.get(bin_id, False)
             
@@ -136,7 +138,11 @@ class fillPredictor:
             # Add current timestamp
             timestamp = datetime.datetime.now().isoformat()
 
+            print(f"[ML-Engine] Clean data stored for Bin {bin_id}: {clean_value}%")
+
             features = self._extract_features(timestamp, bin_id)
+
+            print(f"[ML-Engine] Extracted features for Bin {bin_id}: {features}")
             
             # Simulate saving to dataset
             record = {

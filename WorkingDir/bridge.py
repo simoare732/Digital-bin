@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT = 'COM5'
 BAUD_RATE = 9600
 ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
 #BROKER = 'localhost'

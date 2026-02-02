@@ -8,12 +8,13 @@ class fillPredictor:
     def __init__(self):
         # This will act as our 'training dataset'
         self.training_data = []
-        self.db_file = "dataset.jsonl"
+        base_path = path.dirname(path.abspath(__file__))
+        self.db_file = path.join(base_path, "dataset.jsonl")
         
         # Limits for fill levels (%)
         self.MIN_VAL = 0
         self.MAX_VAL = 100 
-        self.MAX_TD = 10 # Max training data points in memory before saving to file
+        self.MAX_TD = 3 # Max training data points in memory before saving to file
 
         self.last_valid_value = 0
         self.overturn = {}
@@ -93,6 +94,7 @@ class fillPredictor:
             self.training_data = []
         
         except Exception as e:
+            print(f"[ML-Engine] Error saving data: {e}")
             return
     
     def load_data(self):

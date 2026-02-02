@@ -15,6 +15,7 @@ class fillPredictor:
         self.MAX_VAL = 100 
         self.MAX_TD = 10 # Max training data points in memory before saving to file
 
+        self.last_valid_value = 0
         self.overturn = {}
 
     def _convert_cyclical(self, value, max_value):
@@ -122,10 +123,13 @@ class fillPredictor:
 
             is_overturn = self.overturn.get(bin_id, False)
             
-            # Simple Outlier Detection: If value is out of range or bin is overturned, discard it.
+            # Simple Outlier Detection: If value is out of range or bin is overturned, use last valid value.
             if clean_value < self.MIN_VAL or clean_value > self.MAX_VAL or is_overturn:
                 print(f"[ML-Engine] Data discarded (Outlier): {clean_value}")
-                return False
+                clean_value = self.last_valid_value
+            
+            # Save last valid value
+            self.last_valid_value = clean_value
             
             # Add current timestamp
             timestamp = datetime.datetime.now().isoformat()

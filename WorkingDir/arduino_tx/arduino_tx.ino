@@ -263,7 +263,10 @@ void processCommand(byte commandType, String payload){
         closeBin();
         isOpen=false;
       }
-      if(payload.toInt() == 0) openBin();
+      if(payload.toInt() == 0){
+        openBin();
+        isOpen=true;
+      } 
       break;
     }
     
@@ -441,6 +444,8 @@ void drawRotatedArrow(int16_t cx, int16_t cy, float angleDeg) {
   display.fillCircle(cx, cy, 2, SSD1306_WHITE);
 }
 
+bool isConfMode=false;
+
 // Function to check if NFC card corresponds to the default one, you can open the bin
 void checkRFID() {
   // Search a new tag
@@ -456,10 +461,15 @@ void checkRFID() {
   // Compare the read UID with the default one, if they are equal, you can open
   if (compareUID(rfid.uid.uidByte, defaultCard, rfid.uid.size)) {    
     Serial.println("Card read");
-    if(!isOpen){
-       openBin();    
-       isOpen=true; 
-       //delay(50000);
+    if(!isConfMode){
+       openBin();   
+       isOpen=true;
+       isConfMode=true; 
+       showConf();
+    }else{
+       isConfMode=false; 
+       display.clearDisplay();  
+       display.display(); 
     }
   }
 
@@ -542,17 +552,33 @@ void setup() {
 
 }
 
-void loop() {
-   if(millis() - last_fill >= delay_fill){
-      last_fill = millis();
-      send_fill();
-   }
-   
-   if(millis() - last_overturn >= delay_overturn){
-      last_overturn = millis();
-      send_overturn();
-   }
+void showConf(){
+  display.clearDisplay();      
+  display.setTextSize(2);      
+  display.setTextColor(WHITE); 
+  
+  display.setCursor(40, 15);   
+  display.print("ConfMode");       
+  
+  display.display();
+}
 
-   checkSerialCommands();
+void loop() {
+  if(!isConfMode){
+  
+     if(millis() - last_fill >= delay_fill){
+        last_fill = millis();
+        send_fill();
+     }
+     
+     if(millis() - last_overturn >= delay_overturn){
+        last_overturn = millis();
+        send_overturn();
+     }
+
+    checkSerialCommands(); 
+    
+  }
+    
    checkRFID();
 }

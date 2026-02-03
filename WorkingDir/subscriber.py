@@ -122,7 +122,7 @@ def on_message(client, userdata, msg):
 
     if data_key == "fill":
         model.preprocess_and_store(bin_id, payload_value)
-        if int(payload_value) >= MAX_FILL and int(SUBSCRIBED_DATA[bin_id]["lock"])==0:
+        if int(payload_value) >= MAX_FILL:
             client.publish(f"hivemq/ahfgnsad439/BINs/{bin_id}/lock", payload=1, qos=1)
             send_data_to_thingsboard(client0, bin_id, "lock", 0)
             SUBSCRIBED_DATA[bin_id]["lock"] = 1

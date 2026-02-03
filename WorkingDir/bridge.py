@@ -7,28 +7,17 @@ import json
 import os
 from pathlib import Path
 
-
-SERIAL_PORT = '/dev/ttyACM0'
-BAUD_RATE = 9600
-ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-#BROKER = 'localhost'
-BROKER = '3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud'
-PORT = 8883 
-CLIENT_ID = "bridge_publisher"
-USERNAME = "bridge1" 
-
-#topic_pub_fill = '/BINs/+/fill'
-#topic_pub_position = '/BINs/+/position'
-#topic_pub_overturn = '/BINs/+/overturn'
-
+#MQTT TOPICS
 TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/"
 topic_sub_lock = TOPIC_BASE + '+/lock'
 topic_sub_lcd = TOPIC_BASE + '+/lcd'
 
-script_dir = Path(__file__).parent.resolve()
-password_file = script_dir / "token.txt"
+#SERIAL CONNECTION
+SERIAL_PORT = '/dev/ttyACM0'
+BAUD_RATE = 9600
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
 
-def read_password_from_file(file_name=password_file):
+def read_password_from_file(file_name):
     try:
         with open(file_name, 'r', encoding='utf-8') as file:
             password = file.read().strip()
@@ -40,8 +29,6 @@ def read_password_from_file(file_name=password_file):
     except Exception as e:
         print(f"An error occurred while reading the file: {e}")
         return None
-
-PASSWORD = read_password_from_file()
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -66,16 +53,47 @@ def on_connect(client, userdata, flags, rc):
             
             client.publish(full_topic, payload=payload_str, qos=1)
             print(f"Sent: '{payload_str}' to topic: '{full_topic}'")
+
+        id_1 = 3 
+        data_1 = {
+            "lat": 44.628694, 
+            "lon": 10.907417, 
+            "overturn": False,
+            "fill": 50
+        }
+
+        TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/{id_1}"
+        for key, value in data_1.items():
+            
+            full_topic = f"{TOPIC_BASE}/{key}"
+            payload_str = str(value) 
+            
+            client.publish(full_topic, payload=payload_str, qos=1)
+            print(f"Sent: '{payload_str}' to topic: '{full_topic}'")
+
+        id_1 = 4 
+        data_1 = {
+            "lat": 44.627556, 
+            "lon": 10.909667, 
+            "overturn": False,
+            "fill": 60
+        }
+
+        TOPIC_BASE = f"hivemq/ahfgnsad439/BINs/{id_1}"
+        for key, value in data_1.items():
+            
+            full_topic = f"{TOPIC_BASE}/{key}"
+            payload_str = str(value) 
+            
+            client.publish(full_topic, payload=payload_str, qos=1)
+            print(f"Sent: '{payload_str}' to topic: '{full_topic}'")
     else:
         print("Connection failed with code", rc)
 
 def on_message(client, userdata, msg):
-    """Callback per la ricezione di messaggi MQTT."""
-    # Inoltra il messaggio ricevuto (es. 'lock' o dati per 'lcd')
-    # direttamente al microcontrollore tramite seriale.
     payload = msg.payload.decode()
     topic = msg.topic
-    print(f"MQTT RX | Topic: {topic} | Payload: {payload}")
+    print(f"    MQTT RX | Topic: {topic} | Payload: {payload}\n")
 
     payload_bytes = payload.encode('utf-8')
 
@@ -85,65 +103,59 @@ def on_message(client, userdata, msg):
     elif ('lcd' in topic):
         topic_marker = b'\x02'
     else:
-        topic_marker = b'\x00'  # Marker di default se non riconosciuto
+        topic_marker = b'\x00' 
     end_marker = b'\xFF'
 
     packet = start_marker + topic_marker + payload_bytes + end_marker
 
-    print(packet)
-    print( "\n")
+    print(f"    SENDING SERIAL COMMAND: {packet}\n")
 
-    # Invia il comando al dispositivo seriale
+
+    # Send command through bridge via serial
     try:
         ser.write(packet)
     except Exception as e:
         print(f"Errore scrittura seriale: {e}")
 
 
-def serial_reader():
-    """Thread per leggere dati dalla seriale e pubblicarli su MQTT."""
-    print("Thread lettore seriale avviato...")
+def serial_reader(client):
+
+    print("Serial Thread running...\n")
+
     while True:
         if ser.in_waiting:
             try:
-                # Leggi una riga dalla seriale (es. "FILL,1,85")
+                # Read serial line
                 line = ser.readline().decode().strip()
                 if not line:
                     continue
 
-                print(f"Seriale RX: {line}")
+                #print(f"    Serial RX: {line}\n")
                 
-                # --- PARSING DEL MESSAGGIO ---
                 parts = line.split(',')
                 if len(parts) < 2:
-                    print(f"Dato seriale non valido (troppo corto): {line}")
+                    print(f"Log message: {line}\n")
                     continue
 
-                msg_type = parts[0].upper() # Tipo (FILL, POSITION, OVERTURN)
-                bin_id = parts[1]           # ID del bidone (es. '1', '2')
+                msg_type = parts[0].upper() 
+                bin_id = parts[1]          
 
                 payload = None
 
-                # Costruisci topic e payload in base al tipo di messaggio
                 if msg_type == 'FILL' and len(parts) == 3:
-                    # Formato: FILL,id,valore
                     payload = {"fill": parts[2]}
                 
                 elif msg_type == 'POSITION' and len(parts) >= 3:
-                    # Formato: POSITION,id,lat,lon (o un altro formato)
-                    # Qui uniamo lat e lon se sono separati
                     payload = {"lat": float(parts[2]), "lon": float(parts[3])}
 
                 elif msg_type == 'OVERTURN' and len(parts) == 3:
-                    # Formato: OVERTURN,id,stato
                     payload = {"overturn": parts[2]}
                 
                 else:
-                    print(f"Dato seriale non riconosciuto: {line}")
+                    print(f"Serial Error: {line}\n")
 
-                # Se abbiamo un topic e un payload validi, pubblichiamo
                 if payload:
-                    print(f"MQTT TX | Payload: {payload}")
+                    print(f"    MQTT TX | Payload: {payload}\n")
                     if(msg_type == 'POSITION'):
                         client.publish(f"{TOPIC_BASE}{bin_id}/lat", payload=payload['lat'], qos=1)
                         client.publish(f"{TOPIC_BASE}{bin_id}/lon", payload=payload['lon'], qos=1)
@@ -151,25 +163,46 @@ def serial_reader():
                         client.publish(f"{TOPIC_BASE}{bin_id}/{msg_type.lower()}", payload=payload[msg_type.lower()], qos=1)
                     
             except Exception as e:
-                print(f"Errore nel thread seriale: {e}")
-        time.sleep(0.1) # Piccolo delay per non sovraccaricare la CPU
-
-client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
-client.on_connect = on_connect
-client.on_message = on_message
-client.username_pw_set(username=USERNAME, password=PASSWORD)
-if PORT == 8883:
-    client.tls_set(tls_version=ssl.PROTOCOL_TLS)
-
-try:
-    client.connect(BROKER, PORT, 60)
-except Exception as e:
-    print(f"Impossibile connettersi al broker {BROKER}: {e}")
-    exit(1)
+                print(f"Error serial thread: {e}")
 
 
+def main():
 
-t = threading.Thread(target=serial_reader, daemon=True)
-t.start()
-print("MQTT Bridge running...")
-client.loop_forever()
+    #MQTT CONNECTION (HiveMQ)
+    BROKER = '3224d9e30f954d01a9b9570ad77953f2.s1.eu.hivemq.cloud'
+    PORT = 8883 
+    CLIENT_ID = "bridge_publisher"
+    USERNAME = "bridge1" 
+
+    #GET HIVEMQ PASSWORD 
+    script_dir = Path(__file__).parent.resolve()
+    password_file = script_dir / "token.txt"
+    PASSWORD = read_password_from_file(password_file)
+    if not PASSWORD:
+        print(f"Error password can not be null")
+        return -1
+
+    client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.username_pw_set(username=USERNAME, password=PASSWORD)
+    if PORT == 8883:
+        client.tls_set(tls_version=ssl.PROTOCOL_TLS)
+
+    try:
+        client.connect(BROKER, PORT, 60)
+    except Exception as e:
+        print(f"HiveMQ connection failed {BROKER}: {e}")
+        exit(1)
+
+
+    t = threading.Thread(target=serial_reader, daemon=True, args=(client,))
+    t.start()
+
+    print("MQTT Bridge running...\n")
+    client.loop_forever()
+    
+
+if __name__ == "__main__":
+    main()
+    

@@ -557,7 +557,7 @@ void showConf(){
   display.setTextSize(2);      
   display.setTextColor(WHITE); 
   
-  display.setCursor(40, 15);   
+  display.setCursor(20, 15);   
   display.print("ConfMode");       
   
   display.display();

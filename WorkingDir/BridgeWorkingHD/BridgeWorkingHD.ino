@@ -131,7 +131,7 @@ void loop() {
   if (waitingForAck) {
     if (millis() - lastSendTime > ackTimeout) {
       if(max_retry>0){
-        Serial.println("ACK TIMEOUT. Riprovo...");
+        Serial.println("ACK TIMEOUT. Retry...");
         send_data();
         max_retry--;
       }else{
@@ -144,7 +144,7 @@ void loop() {
     
   } else {
     if (pos > 0) {
-      Serial.println("Dati pronti, inizio invio...");
+      Serial.println("SENDING SERIAL COMMAND TO BIN");
       send_data();
     }
   }
